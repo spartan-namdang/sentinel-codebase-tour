@@ -32,6 +32,8 @@
   <symbol id="i-check" viewBox="0 0 24 24"><path d="M4 12.5l5 5L20 6.5"/></symbol>
   <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
   <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3.5L22 20.5H2zM12 10v5M12 17.8h.01"/></symbol>
+  <symbol id="i-replay" viewBox="0 0 24 24"><path d="M3.5 12a8.5 8.5 0 102.5-6M3.5 3.5V8H8"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24"><path d="M9 5v14M15 5v14"/></symbol>
   <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5h.01"/></symbol>
 </svg>
 
@@ -172,7 +174,7 @@ core/module-*/          database, SQS, email
       <div class="card">
         <h3>Big service, split by domain</h3>
         <figure class="fig">
-          <svg class="dg dg-anim" viewBox="0 12 480 220" data-loop="7" role="img" aria-label="orders-impl may depend on billing-api, but a dependency on billing-impl does not compile because impl modules are wired runtimeOnly">
+          <svg class="dg dg-anim" viewBox="0 12 480 220" data-loop="7" data-tools="above" role="img" aria-label="orders-impl may depend on billing-api, but a dependency on billing-impl does not compile because impl modules are wired runtimeOnly">
             <path class="wire" d="M105 176V70"/>
             <path class="wire" d="M375 176V70"/>
             <path id="md-ok" class="wire wire-ok" d="M200 182L280 66"/>
@@ -391,29 +393,27 @@ core/module-*/          database, SQS, email
         <h3>@Factory builds plain classes</h3>
 <pre class="is-small"><code class="kotlin" data-trim>
 @Factory
-@Requires(
-  property = "carrier.enabled", value = "true"
-)
-class CarrierFactory {
+class EmailFactory {
   @Singleton
-  fun carrierClient(config: CarrierConfig) =
+  fun emailSender(config: EmailConfig) =
     when (config.provider) {
-      "fake" -> FakeCarrierClient()
-      else -> HttpCarrierClient(config)
+      "log" -> LogEmailSender()
+      else -> SesEmailSender(config)
     }
 }
 </code></pre>
-        <p>No <code>@Singleton</code> on implementation classes. One file shows what is built.</p>
+        <p>No <code>@Singleton</code> on implementation classes. One file shows what is built; <code>@Requires</code> switches a bean on or off by config.</p>
       </div>
       <div class="card">
         <h3>application.yml, not the code</h3>
 <pre class="is-small"><code class="yaml" data-trim>
-carrier:
-  enabled: ${CARRIER_ENABLED:true}
-  provider: ${CARRIER_PROVIDER:fake}
-  timeout: ${CARRIER_TIMEOUT:3s}
-orders:
-  list-limit-max: 200
+app:
+  email:
+    provider: ${EMAIL_PROVIDER:log}
+    timeout: ${EMAIL_TIMEOUT:5s}
+    max-attempts: 3
+  orders:
+    list-limit-max: 200
 </code></pre>
         <p>Limits, timeouts, switches: a typed config class reads them. One place to look, one value per environment, no code change to tune.</p>
       </div>
@@ -425,13 +425,15 @@ orders:
       <li>⏱ 1,5 phút, nói lướt</li>
       <li>Bean tạo trong class <code>@Factory</code>, không gắn <code>@Singleton</code> lên class implementation</li>
       <li>Olympus: <code>runtime/factory/</code> (<code>ManagerFactory</code>, <code>RepositoryFactory</code>…)</li>
-      <li>Ví dụ có thật: <code>ExtractionFactory</code> chọn fake hay OpenAI theo config; <code>ItviecFactory</code> dùng <code>@Requires(property = …)</code></li>
+      <li>Ví dụ: gửi email. Local <code>provider: log</code> chỉ in email ra log; dev/prod đặt <code>EMAIL_PROVIDER=ses</code></li>
+      <li>Olympus có đúng kiểu này: <code>ExtractionFactory</code> chọn fake hay OpenAI; <code>ItviecFactory</code> dùng <code>@Requires(property = …)</code></li>
       <li>Số, timeout, công tắc: nằm trong <code>application.yml</code>, ghi đè bằng env var</li>
     </ul>
     <h4>Full note</h4>
     <p>Ở Spartan, bean không được tạo bằng cách gắn <code>@Singleton</code> lên class implementation. Thay vào đó mỗi nhóm bean có một class <code>@Factory</code>, với từng method trả về một bean. Trong Olympus các factory nằm ở <code>runtime/factory/</code>: <code>ManagerFactory</code>, <code>RepositoryFactory</code>, <code>ServiceFactory</code> và vài cái khác. Lợi ích là mở một file là thấy được bean nào được tạo, từ dependency nào, và trong điều kiện nào. Ngoại lệ duy nhất là scheduler, vì Micronaut chỉ tìm <code>@Scheduled</code> trên bean thật.</p>
-    <p>Ví dụ trên slide mô phỏng hai factory có thật trong Olympus. <code>ExtractionFactory</code> đọc config <code>cv-extraction.provider</code>: nếu là <code>fake</code> thì tạo extractor giả để chạy local và test, còn <code>openai</code> thì tạo client thật với timeout lấy từ config. <code>ItviecFactory</code> thì gắn <code>@Requires(property = "app.itviec.enabled")</code> ở cấp class: môi trường nào không bật thì cả nhóm bean không được tạo.</p>
-    <p>Bên phải là config. Giới hạn, timeout, công tắc bật tắt đều nằm trong <code>application.yml</code>, đọc qua một config class có kiểu, và mỗi giá trị có thể bị ghi đè bằng biến môi trường. Lợi ích: muốn biết timeout là bao nhiêu thì chỉ có một chỗ để tìm, mỗi môi trường đặt một giá trị riêng, và muốn chỉnh thì không phải sửa code.</p>
+    <p>Ví dụ trên slide là gửi email, thứ service nào cũng có. Factory đọc config <code>provider</code>: chạy local thì là <code>log</code>, email chỉ được in ra log chứ không gửi thật, nên các bạn không lỡ tay gửi mail cho ứng viên thật. Trên dev và prod, biến môi trường <code>EMAIL_PROVIDER=ses</code> chuyển sang gửi qua Amazon SES, với timeout lấy từ config. Code không đổi một dòng.</p>
+    <p>Olympus có đúng kiểu này ở hai factory thật. <code>ExtractionFactory</code> đọc config <code>cv-extraction.provider</code>: nếu là <code>fake</code> thì tạo extractor giả để chạy local và test, còn <code>openai</code> thì tạo client thật với timeout lấy từ config. <code>ItviecFactory</code> thì gắn <code>@Requires(property = "app.itviec.enabled")</code> ở cấp class: môi trường nào không bật thì cả nhóm bean không được tạo.</p>
+    <p>Bên phải là config. Nhà cung cấp email, giới hạn, timeout, công tắc bật tắt đều nằm trong <code>application.yml</code>, đọc qua một config class có kiểu, và mỗi giá trị có thể bị ghi đè bằng biến môi trường. Lợi ích: muốn biết timeout là bao nhiêu thì chỉ có một chỗ để tìm, mỗi môi trường đặt một giá trị riêng, và muốn chỉnh thì không phải sửa code.</p>
   </aside>
 </section>
 
@@ -647,7 +649,7 @@ fun cancel(
   <div class="s-body">
     <div class="fig-row is-wide">
       <figure class="fig">
-        <svg class="dg dg-anim" viewBox="0 0 760 360" data-loop="7" role="img" aria-label="The test calls OrderClient, which sends HTTP to OrderController, which calls OrderManager; the answer comes back the same way. DTOs and the client live in module-client, SystemError in module-exception.">
+        <svg class="dg dg-anim" viewBox="0 -48 760 408" data-loop="7" role="img" aria-label="The test calls OrderClient, which sends HTTP to OrderController, which calls OrderManager; the answer comes back the same way. DTOs and the client live in module-client, SystemError in module-exception.">
           <text x="20" y="24" class="t-mono t-muted">module-client</text>
           <text x="300" y="24" class="t-mono t-muted">api-platform</text>
           <text x="560" y="24" class="t-mono t-muted">module-exception</text>
@@ -845,7 +847,7 @@ interface OrderClient {
   <div class="s-body">
     <div class="fig-row">
       <figure class="fig">
-        <svg class="dg dg-anim" viewBox="0 0 1120 170" data-loop="5" role="img" aria-label="The controller produces an OpenAPI spec; pnpm gen-api runs Orval on it and writes a typed hook that the React page calls.">
+        <svg class="dg dg-anim" viewBox="-4 0 1128 170" data-loop="5" role="img" aria-label="The controller produces an OpenAPI spec; pnpm gen-api runs Orval on it and writes a typed hook that the React page calls.">
           <path class="wire" d="M190 75H930"/>
           <path id="fe-rail" class="rail" d="M95 75H1025"/>
           <circle class="pkt" r="7" data-along="#fe-rail" data-at="0.3" data-dur="3.4"/>
@@ -1021,7 +1023,7 @@ interface OrderClient {
   <div class="s-body">
     <div class="fig-row">
       <figure class="fig">
-        <svg class="dg dg-anim" viewBox="0 0 1116 236" data-loop="6.5" role="img" aria-label="A request passes six hops: socket, event loop, IO pool, your code, connection pool, Postgres. When the IO pool or the connection pool is full, requests wait.">
+        <svg class="dg dg-anim" viewBox="-4 0 1124 236" data-loop="6.5" role="img" aria-label="A request passes six hops: socket, event loop, IO pool, your code, connection pool, Postgres. When the IO pool or the connection pool is full, requests wait.">
           <path class="ln" d="M88 134V182M276 134V182M464 134V182M652 134V182M840 134V182M1028 134V182"/>
           <path class="wire wire-soft" d="M88 190H1028"/>
           <path id="hp-1" class="rail" d="M88 190H464"/>
@@ -1320,7 +1322,7 @@ fun `cancel order - another organization is refused`(): Unit = runBlocking {
   </header>
   <div class="s-body">
     <p class="statement">Three layers. One API style. Errors as values. Every endpoint tested.</p>
-    <p class="lead">The rules, for people and for AI: <code>apps/service/.claude/rules/</code>. Every intern asks at least one question now.</p>
+    <p class="lead">Everything else is in the Team standards table on Notion. Every intern asks at least one question now.</p>
   </div>
   <p class="prompt">$ ask anyone, anything - don't hide and guess</p>
   <aside class="notes">
@@ -1328,13 +1330,14 @@ fun `cancel order - another organization is refused`(): Unit = runBlocking {
     <ul>
       <li>⏱ 15 phút</li>
       <li>Tóm lại 4 ý: ba layer, một kiểu API, lỗi là giá trị, endpoint nào cũng có test</li>
-      <li>Mọi rule nằm trong <code>apps/service/.claude/rules/</code>; đọc trước khi code và trước khi nhờ AI</li>
+      <li>Còn lại: bảng Team standards trên Notion</li>
+      <li>Rule cho cả người lẫn AI trong repo: <code>apps/service/.claude/rules/</code>; đọc trước khi code và trước khi nhờ AI</li>
       <li>Mỗi bạn hỏi ít nhất một câu</li>
       <li>Bị hỏi về database hay auth: mở slide Backup</li>
     </ul>
     <h4>Full note</h4>
     <p>Nếu chỉ nhớ bốn ý: request đi qua ba layer, không bỏ layer nào. API chỉ có một kiểu. Lỗi dự đoán được là giá trị, không phải exception. Và endpoint nào cũng có bộ HTTP test chạy với database thật.</p>
-    <p>Mọi quy tắc hôm nay đều có trong <code>apps/service/.claude/rules/</code> của repo Olympus. Đây là rule cho cả người lẫn AI: đọc trước khi viết code, và trước khi nhờ AI viết code.</p>
+    <p>Những gì hôm nay chưa nói tới đều có trong bảng Team standards trên Notion. Còn các quy tắc trong buổi này cũng được viết thành file trong <code>apps/service/.claude/rules/</code> của repo Olympus. Đây là rule cho cả người lẫn AI: đọc trước khi viết code, và trước khi nhờ AI viết code.</p>
     <p>Giờ là phần hỏi đáp. Mỗi bạn hỏi ít nhất một câu nhé. Câu nào chưa trả lời được ngay thì mình ghi lại và trả lời trong channel.</p>
     <p>Ghi chú cho người trình bày: nếu có câu hỏi về database hay auth, hai slide Backup ở cuối deck trả lời sẵn.</p>
   </aside>

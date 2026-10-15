@@ -52,8 +52,11 @@
           data-show="1 4, 5.7 7.4"                                       visible only in these windows
           <g data-scene="name" data-loop="5">                            drawn while that scene is active:
             the first one by default, then the last visible .fragment[data-scene] on the slide
-          Times are seconds within the loop; the loop restarts on every slide or scene change. ---- */
-  var dg = { slide: null, scene: null, items: [], t0: 0, raf: 0 };
+          Times are seconds within the loop; the loop restarts on every slide or scene change.
+          Controls: hovering a diagram shows a replay button (top right) that restarts the loop;
+          clicking the diagram pauses and resumes it, and a pause icon stays visible while paused.
+          The buttons sit just above the drawing when there is room (or data-tools="above"), else inside it. ---- */
+  var dg = { slide: null, scene: null, items: [], t0: 0, raf: 0, paused: false, pausedAt: 0 };
 
   function dgList(value) {
     return (value || '').split(',').map(function (part) { return part.trim().split(/\s+/).map(Number); });
@@ -97,6 +100,7 @@
 
     cancelAnimationFrame(dg.raf);
     dg.items.forEach(function (it) { it.el.classList.remove('is-on'); });
+    dgSetPaused(false);
     dg.slide = slide;
     dg.scene = scene;
     dg.items = [];
@@ -119,8 +123,80 @@
         dg.items.push(it);
       });
     });
+    svgs.forEach(dgPlaceTools);
     dg.t0 = performance.now();
     dg.raf = requestAnimationFrame(dgTick);
+  }
+
+  /* ---- Diagram controls: replay on hover, click to pause / resume ---- */
+  function dgSetPaused(paused) {
+    dg.paused = paused;
+    document.querySelectorAll('.dg-host').forEach(function (host) {
+      host.classList.toggle('is-paused', paused && !!dg.slide && dg.slide.contains(host));
+    });
+  }
+  function dgTogglePause() {
+    if (!dg.items.length) return;
+    if (dg.paused) {
+      dg.t0 += performance.now() - dg.pausedAt;       // continue from the same moment
+      dgSetPaused(false);
+      dg.raf = requestAnimationFrame(dgTick);
+    } else {
+      cancelAnimationFrame(dg.raf);
+      dg.pausedAt = performance.now();
+      dgSetPaused(true);
+    }
+  }
+  function dgReplay() {
+    if (!dg.items.length) return;
+    cancelAnimationFrame(dg.raf);
+    dg.items.forEach(function (it) { it.el.classList.remove('is-on'); });
+    dgSetPaused(false);
+    dg.t0 = performance.now();
+    dg.raf = requestAnimationFrame(dgTick);
+  }
+  // keep the buttons on the drawing itself, not on the empty sides of a letterboxed svg
+  function dgPlaceTools(svg) {
+    var host = svg.closest('.dg-host');
+    var tools = host && host.querySelector('.dg-tools');
+    if (!tools || !svg.viewBox || !svg.viewBox.baseVal) return;
+    var vb = svg.viewBox.baseVal;
+    // measure in slide pixels: Reveal scales the whole slide, so divide the screen rects by that scale
+    var hostRect = host.getBoundingClientRect(), svgRect = svg.getBoundingClientRect();
+    var scale = host.offsetWidth ? hostRect.width / host.offsetWidth : 1;
+    var w = svgRect.width / scale, h = svgRect.height / scale;
+    if (!w || !h || !vb.width || !vb.height) return;
+    var drawW = w, drawH = h;
+    if (w / h > vb.width / vb.height) drawW = h * vb.width / vb.height;
+    else drawH = w * vb.height / vb.width;
+    var left = (svgRect.left - hostRect.left) / scale + (w - drawW) / 2;
+    var top = (svgRect.top - hostRect.top) / scale + (h - drawH) / 2;
+    // just above the drawing when there is room, otherwise inside its top-right corner
+    var above = top >= 46 || svg.getAttribute('data-tools') === 'above';
+    tools.style.top = Math.round(above ? top - 44 : top + 6) + 'px';
+    tools.style.right = Math.round(host.offsetWidth - (left + drawW) + 6) + 'px';
+  }
+  function buildDiagramControls() {
+    document.querySelectorAll('svg.dg-anim').forEach(function (svg) {
+      var host = svg.closest('figure') || svg.parentElement;
+      host.classList.add('dg-host');
+      var tools = document.createElement('div');
+      tools.className = 'dg-tools';
+      tools.innerHTML =
+        '<button type="button" class="dg-btn dg-replay" title="Replay animation" aria-label="Replay animation">' +
+          '<svg class="icon"><use href="#i-replay"/></svg></button>' +
+        '<span class="dg-btn dg-paused" title="Paused: click the diagram to resume" role="status" aria-label="Animation paused">' +
+          '<svg class="icon"><use href="#i-pause"/></svg></span>';
+      host.appendChild(tools);
+      tools.querySelector('.dg-replay').addEventListener('click', function (e) {
+        e.stopPropagation();
+        if (dg.slide && dg.slide.contains(svg)) dgReplay();
+      });
+      svg.addEventListener('click', function () {
+        if (dg.slide && dg.slide.contains(svg)) dgTogglePause();
+      });
+      host.addEventListener('mouseenter', function () { dgPlaceTools(svg); });
+    });
   }
 
   /* ---- Layout audit: run Deck.audit() in the browser console (or a test harness).
@@ -175,6 +251,7 @@
   /* ---- Reveal ---- */
   function init() {
     buildFooters();
+    buildDiagramControls();
 
     return Reveal.initialize({
       width: 1280,

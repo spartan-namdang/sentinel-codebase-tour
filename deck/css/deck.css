@@ -61,14 +61,16 @@
   --c-db: #bd9bf7;      /* database and storage */
   --c-error: #ff7572;   /* errors only */
 
-  /* code */
-  --code-bg: #161a23;
-  --code-ink: #e6eaf0;
-  --code-comment: #8b96a5;
-  --code-key: #8fb0ff;
-  --code-string: #6fd49b;
-  --code-number: #f2ab48;
-  --code-keyword: #c3a3fa;
+  /* code: IntelliJ New UI "Dark" editor colours */
+  --code-bg: #1e1f22;
+  --code-ink: #bcbec4;
+  --code-comment: #7a7e85;
+  --code-keyword: #cf8e6d;
+  --code-string: #6aab73;
+  --code-number: #2aacb8;
+  --code-annotation: #b3ae60;
+  --code-function: #56a8f5;
+  --code-property: #c77dbb;
 }
 
 :root[data-theme="light"] {
@@ -90,13 +92,16 @@
   --c-db: #6d35b5;
   --c-error: #c0211f;
 
-  --code-bg: #f2f3f1;
-  --code-ink: #12161d;
-  --code-comment: #667180;
-  --code-key: #1746c9;
-  --code-string: #12733b;
-  --code-number: #9a5200;
-  --code-keyword: #6d35b5;
+  /* code: IntelliJ "Light" editor colours */
+  --code-bg: #ffffff;
+  --code-ink: #080808;
+  --code-comment: #8c8c8c;
+  --code-keyword: #0033b3;
+  --code-string: #067d17;
+  --code-number: #1750eb;
+  --code-annotation: #9e880d;
+  --code-function: #00627a;
+  --code-property: #871094;
 }
 
 /* 3. Reveal base ---------------------------------------------------------- */
@@ -405,6 +410,24 @@ html, body, .reveal-viewport { background: var(--bg); }
 .dg .glow-err { stroke: var(--c-error); }
 .dg .glow-ok { stroke: var(--c-ok); }
 .dg .glow-wait { stroke: var(--c-wait); }
+/* diagram controls, added by deck.js: replay shows on hover, the pause icon while paused */
+.dg-host { position: relative; }
+.dg-anim { cursor: pointer; }
+.dg-tools { position: absolute; top: 6px; right: 6px; display: flex; gap: var(--sp-1); pointer-events: none; }
+.dg-btn {
+  box-sizing: border-box; width: 38px; height: 38px; padding: 0; margin: 0;
+  display: grid; place-items: center;
+  border: var(--rule-w) solid var(--rule); border-radius: var(--radius-pill);
+  background: var(--surface); color: var(--ink-2);
+  font: inherit;
+}
+.dg-btn .icon { width: 20px; height: 20px; stroke-width: 2; }
+.dg-replay { opacity: 0; cursor: pointer; transition: opacity 0.15s, color 0.15s, border-color 0.15s; }
+.dg-host:hover .dg-replay { opacity: 1; pointer-events: auto; }
+.dg-replay:hover { color: var(--accent); border-color: var(--accent); }
+.dg-paused { display: none; color: var(--c-wait); border-color: var(--c-wait); }
+.dg-host.is-paused .dg-paused { display: grid; }
+
 .dg-anim [data-along], .dg-anim [data-show] { opacity: 0; transition: opacity 0.15s; }
 .dg-anim .is-on { opacity: 1; }
 .dg-anim g[data-scene] { display: none; }
@@ -425,12 +448,18 @@ html, body, .reveal-viewport { background: var(--bg); }
   background: transparent; color: var(--code-ink);
   white-space: pre; word-wrap: normal;
 }
+/* token → colour, the way IntelliJ paints Kotlin, YAML, JSON and SQL:
+   keywords and true/false/null orange, strings green, numbers cyan, annotations olive,
+   declared function names blue, JSON / YAML keys purple, types and calls in plain text */
 .hljs-comment, .hljs-quote { color: var(--code-comment); font-style: normal; }
-.hljs-attr, .hljs-attribute, .hljs-property, .hljs-name, .hljs-title, .hljs-title.function_, .hljs-section { color: var(--code-key); }
+.hljs-keyword, .hljs-literal, .hljs-selector-tag, .hljs-section, .hljs-name { color: var(--code-keyword); }
 .hljs-string, .hljs-regexp, .hljs-addition { color: var(--code-string); }
-.hljs-number, .hljs-literal, .hljs-symbol, .hljs-bullet { color: var(--code-number); }
-.hljs-meta { color: var(--code-key); }
-.hljs-keyword, .hljs-selector-tag, .hljs-built_in, .hljs-type, .hljs-tag { color: var(--code-keyword); }
-.hljs-variable, .hljs-params, .hljs-subst, .hljs-punctuation, .hljs-operator { color: var(--code-ink); }
+.hljs-number { color: var(--code-number); }
+.hljs-meta, .hljs-meta .hljs-keyword, .hljs-symbol { color: var(--code-annotation); }
+.hljs-title.function_, .hljs-function .hljs-title { color: var(--code-function); }
+.hljs-attr, .hljs-attribute, .hljs-property { color: var(--code-property); }
+.hljs-type, .hljs-built_in, .hljs-title, .hljs-title.class_, .hljs-params, .hljs-variable,
+.hljs-subst, .hljs-punctuation, .hljs-operator, .hljs-bullet { color: var(--code-ink); }
 .hljs-deletion { color: var(--c-error); }
 .hljs-strong { font-weight: 600; }
+.hljs-emphasis { font-style: italic; }
