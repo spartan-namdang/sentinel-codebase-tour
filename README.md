@@ -1,9 +1,9 @@
-# Codebase walkthrough deck
+# sentinel-codebase-tour
 
-Slide deck for sharing session 1 of the Sentinel intern program: how a Spartan service is put together, and what one endpoint is made of. Built with Reveal.js in the same way as `vntech-cdn`: no build step, everything vendored, works offline.
+Slide deck for sharing session 1 of the Sentinel intern program: how a Spartan service is put together, and what one endpoint is made of. Built with Reveal.js: no build step, everything vendored, works offline.
 
 ```
-codebase-walkthrough-deck/
+sentinel-codebase-tour/
 ├── README.md
 ├── tools/check_slides.py      notes structure, ids, colours, text length
 └── deck/
