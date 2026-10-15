@@ -1,0 +1,1468 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Codebase walkthrough</title>
+  <link rel="icon" href="data:," />
+  <link rel="stylesheet" href="vendor/reveal.js/reset.css" />
+  <link rel="stylesheet" href="vendor/reveal.js/reveal.css" />
+  <link rel="stylesheet" href="css/deck.css" />
+  <script src="js/deck.js"></script>
+</head>
+<body>
+
+<!-- ======================================================================
+     ICON SPRITE: one set, 24×24 grid, stroke only. Reuse with
+     <svg class="icon"><use href="#i-name"/></svg>
+     ====================================================================== -->
+<svg class="sprite" xmlns="http://www.w3.org/2000/svg" width="0" height="0" aria-hidden="true">
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/></symbol>
+  <symbol id="i-browser" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M6.5 6.5h.01M9 6.5h.01"/></symbol>
+  <symbol id="i-server" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 7.5h.01M7 16.5h.01"/></symbol>
+  <symbol id="i-db" viewBox="0 0 24 24"><ellipse cx="12" cy="5.5" rx="7.5" ry="2.5"/><path d="M4.5 5.5v13c0 1.4 3.4 2.5 7.5 2.5s7.5-1.1 7.5-2.5v-13M4.5 12c0 1.4 3.4 2.5 7.5 2.5s7.5-1.1 7.5-2.5"/></symbol>
+  <symbol id="i-box" viewBox="0 0 24 24"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9zM4 7.5l8 4.5 8-4.5M12 12v9"/></symbol>
+  <symbol id="i-code" viewBox="0 0 24 24"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5M13.5 5l-3 14"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M6 3h8l5 5v13H6zM14 3v5h5"/></symbol>
+  <symbol id="i-flask" viewBox="0 0 24 24"><path d="M9 3h6M10 3v6l-5 9a2 2 0 001.8 3h10.4a2 2 0 001.8-3l-5-9V3M7.5 15h9"/></symbol>
+  <symbol id="i-terminal" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9l3 3-3 3M12.5 15H17"/></symbol>
+  <symbol id="i-plug" viewBox="0 0 24 24"><path d="M9 3v5M15 3v5M6 8h12v3a6 6 0 01-12 0zM12 17v4"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M4 12.5l5 5L20 6.5"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3.5L22 20.5H2zM12 10v5M12 17.8h.01"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5h.01"/></symbol>
+</svg>
+
+<div class="reveal">
+<div class="slides">
+
+<!-- ======================================================================
+     OPENING (cover, agenda)
+     ====================================================================== -->
+
+<!-- 0.1 cover -->
+<section class="l-cover">
+  <header class="s-head">
+    <p class="brand">SPARTAN</p>
+  </header>
+  <div class="s-body">
+    <p class="eyebrow">sharing session</p>
+    <h1>Codebase walkthrough</h1>
+    <p class="cover-sub">How a Spartan service is put together, and what one endpoint is made of.</p>
+    <div class="cover-meta">
+      <span><small>length</small><b>75 minutes</b></span>
+      <span><small>part 1</small><b>How a service is put together</b></span>
+      <span><small>part 2</small><b>Anatomy of an endpoint</b></span>
+    </div>
+  </div>
+  <aside class="notes">
+    <h4>Dàn ý</h4>
+    <ul>
+      <li>⏱ 30 giây. Chào, giới thiệu buổi 1 của chuỗi sharing session</li>
+      <li>75 phút, hai phần: cả service, rồi một endpoint</li>
+      <li>Ví dụ trên slide là <code>orders</code>, cú pháp giống Olympus; live demo dùng Department thật</li>
+      <li>Phím: S speaker view, T đổi theme, F full screen</li>
+    </ul>
+    <h4>Full note</h4>
+    <p>Chào các bạn. Đây là buổi đầu tiên của chuỗi sharing session, chủ đề là đọc codebase. Buổi này dài 75 phút và chia làm hai phần.</p>
+    <p>Phần 1 nhìn ở mức cả service: một service của Spartan gồm những module nào, ba layer, request đi qua đâu, bean và config được tạo thế nào, phong cách API, cách xử lý lỗi, và những lỗi mà review hay trả về nhất.</p>
+    <p>Phần 2 phóng to vào một endpoint: DTO, contract, response lỗi, thread và blocking, và các HTTP test mà endpoint nào cũng phải có.</p>
+    <p>Code trên slide dùng một domain giả là <code>orders</code> để dễ đọc, nhưng cú pháp viết y như Olympus, repo các bạn đang làm. Khi live demo thì mình mở code thật của feature Department.</p>
+  </aside>
+</section>
+
+<!-- 0.2 agenda -->
+<section class="l-agenda">
+  <header class="s-head">
+    <p class="eyebrow">why this session</p>
+    <h2>Soon you own a feature here. Today you learn where things live.</h2>
+  </header>
+  <div class="s-body">
+    <div class="agenda">
+      <div class="agenda-item is-lit">
+        <span class="t">20 min · part 1</span>
+        <h3>How a service is put together</h3>
+        <p>Modules, layers, the request path, config, API style, errors, review.</p>
+      </div>
+      <div class="agenda-item">
+        <span class="t">20 min · part 2</span>
+        <h3>Anatomy of an endpoint</h3>
+        <p>DTOs, the contract, error responses, threads, HTTP tests.</p>
+      </div>
+      <div class="agenda-item">
+        <span class="t">20 min</span>
+        <h3>Live in the repo</h3>
+        <p>Department, end to end, in IntelliJ.</p>
+      </div>
+      <div class="agenda-item">
+        <span class="t">15 min</span>
+        <h3>Q&amp;A</h3>
+        <p>Every intern asks at least one question.</p>
+      </div>
+    </div>
+  </div>
+  <aside class="notes">
+    <h4>Dàn ý</h4>
+    <ul>
+      <li>⏱ 1 phút</li>
+      <li>Mục tiêu: biết thứ gì nằm ở đâu, trước khi nhận feature đầu tiên</li>
+      <li>20 + 20 phút slide, 20 phút live trong IntelliJ, 15 phút Q&amp;A</li>
+      <li>Câu hỏi nhỏ cứ hỏi ngay; câu hỏi lớn để cuối</li>
+    </ul>
+    <h4>Full note</h4>
+    <p>Chỉ vài tuần nữa các bạn sẽ tự own một feature từ đầu đến cuối. Hôm nay chưa cần hiểu sâu từng thứ, mục tiêu là biết thứ gì nằm ở đâu, để khi nhận ticket thì mở đúng file.</p>
+    <p>Hai phần đầu mỗi phần khoảng 20 phút trên slide. Sau đó mình tắt slide, mở IntelliJ và đi hết feature Department trong repo Olympus khoảng 20 phút. 15 phút cuối là hỏi đáp.</p>
+    <p>Câu hỏi ngắn kiểu "cái này nghĩa là gì" thì cứ hỏi ngay trong lúc mình nói. Câu hỏi dài hơn thì ghi lại để cuối buổi.</p>
+  </aside>
+</section>
+
+<!-- ======================================================================
+     PART 1: HOW A SPARTAN SERVICE IS PUT TOGETHER (1.0 – 1.7)
+     ====================================================================== -->
+
+<!-- 1.0 part divider -->
+<section class="l-part" data-section="Part 1 · How a service is put together">
+  <div class="s-body">
+    <p class="part-num">part 1 · 20 min</p>
+    <h1>How a Spartan service is put together</h1>
+    <div class="chips">
+      <span class="chip">modules</span>
+      <span class="chip">layers</span>
+      <span class="chip">request path</span>
+      <span class="chip">wiring &amp; config</span>
+      <span class="chip">API style</span>
+      <span class="chip">errors</span>
+      <span class="chip">review</span>
+    </div>
+  </div>
+  <aside class="notes">
+    <h4>Dàn ý</h4>
+    <ul>
+      <li>⏱ 15 giây</li>
+      <li>Phần 1: những quy ước chung của cả service</li>
+      <li>Áp dụng cho mọi endpoint, không riêng feature nào</li>
+    </ul>
+    <h4>Full note</h4>
+    <p>Phần 1 nói về những quy ước chung của cả service. Mọi endpoint, mọi feature đều theo đúng những quy ước này, nên nắm được phần này là đọc được phần lớn codebase.</p>
+    <p>Bảy chủ đề: module, ba layer, đường đi của một request, cách tạo bean và config, phong cách API, cách xử lý lỗi, và cuối cùng là tám lỗi review hay trả về.</p>
+  </aside>
+</section>
+
+<!-- 1.1 modules -->
+<section class="l-two-col" data-section="Part 1 · How a service is put together">
+  <header class="s-head">
+    <p class="eyebrow">the shape of a service</p>
+    <h2>Gradle multi-module. Small apps stay small, big services split by domain.</h2>
+  </header>
+  <div class="s-body">
+    <div class="cols">
+      <div class="card">
+        <h3>Small app, like Olympus</h3>
+<pre class="is-small"><code class="plaintext" data-trim>
+app/api-platform/       controllers, managers
+app/module-client/      DTOs, Retrofit clients
+app/module-postgresql/  repositories, sql/
+app/module-exception/   SystemError
+core/module-*/          database, SQS, email
+</code></pre>
+        <p>One deployable app plus shared modules.</p>
+      </div>
+      <div class="card">
+        <h3>Big service, split by domain</h3>
+        <figure class="fig">
+          <svg class="dg dg-anim" viewBox="0 12 480 220" data-loop="7" role="img" aria-label="orders-impl may depend on billing-api, but a dependency on billing-impl does not compile because impl modules are wired runtimeOnly">
+            <path class="wire" d="M105 176V70"/>
+            <path class="wire" d="M375 176V70"/>
+            <path id="md-ok" class="wire wire-ok" d="M200 182L280 66"/>
+            <path class="wire wire-err" d="M200 201H280"/>
+            <path id="md-bad" class="rail" d="M200 201H238"/>
+
+            <circle class="pkt pkt-ok" r="6" data-along="#md-ok" data-at="0.4" data-dur="1"/>
+            <circle class="pkt pkt-err" r="6" data-along="#md-bad" data-at="3.3" data-dur="0.6"/>
+
+            <rect class="box" x="10" y="20" width="190" height="50" rx="10"/>
+            <text x="105" y="50" class="t-mono t-mid">orders-api</text>
+            <rect class="box box-app" x="10" y="176" width="190" height="50" rx="10"/>
+            <text x="105" y="206" class="t-mono t-mid">orders-impl</text>
+            <rect class="box" x="280" y="20" width="190" height="50" rx="10"/>
+            <text x="375" y="50" class="t-mono t-mid">billing-api</text>
+            <rect class="box" x="280" y="176" width="190" height="50" rx="10"/>
+            <text x="375" y="206" class="t-mono t-mid">billing-impl</text>
+            <text x="115" y="128" class="t-small t-muted">implements</text>
+            <text x="385" y="128" class="t-small t-muted">implements</text>
+
+            <g class="tag tag-ok" data-show="1.4 3.1">
+              <rect x="196" y="100" width="86" height="24" rx="12"/>
+              <text x="239" y="117">compiles</text>
+            </g>
+            <g data-show="3.9 6.6">
+              <use href="#i-x" x="229" y="189" width="24" height="24" class="ic ic-err"/>
+            </g>
+            <g class="tag tag-err" data-show="3.9 6.6">
+              <rect x="176" y="146" width="128" height="24" rx="12"/>
+              <text x="240" y="163">won't compile</text>
+            </g>
+          </svg>
+        </figure>
+        <p>Three modules per domain: api, repository, impl. Impls are wired <b>runtimeOnly</b>, so a domain can only see another domain's api.</p>
+      </div>
+    </div>
+  </div>
+  <aside class="notes">
+    <h4>Dàn ý</h4>
+    <ul>
+      <li>⏱ 2,5 phút</li>
+      <li>Service = Gradle multi-module; mục lục là <code>settings.gradle</code></li>
+      <li>Olympus là "small app": <code>api-platform</code> + 4 module app + <code>core:*</code></li>
+      <li>Một feature thường chạm 4 module đầu</li>
+      <li>Service lớn: mỗi domain tách api / repository / impl</li>
+      <li>Animation: impl → api của domain khác thì compile; impl → impl thì không, vì <code>runtimeOnly</code></li>
+    </ul>
+    <h4>Full note</h4>
+    <p>Mọi backend của Spartan là một Gradle project nhiều module. Muốn biết service có những module nào thì mở <code>settings.gradle</code>, đọc nó như đọc mục lục.</p>
+    <p>Olympus thuộc dạng "small app". Có một module deploy được là <code>app:api-platform</code>, chứa controller, manager, factory, config và job. Bên cạnh là các module dùng chung: <code>module-client</code> chứa request/response DTO và Retrofit client, <code>module-postgresql</code> chứa table, entity, repository và toàn bộ file SQL migration, <code>module-exception</code> chứa <code>SystemError</code> là danh sách mọi mã lỗi API có thể trả về. Cuối cùng là các module <code>core</code> dùng chung như database, SQS, storage, email. Khi làm một feature, các bạn gần như chắc chắn sẽ chạm vào bốn module đầu.</p>
+    <p>Service lớn hơn thì tách theo domain, mỗi domain ba module: api chứa interface và model, repository, và impl. Điểm hay là impl được khai báo <code>runtimeOnly</code>. Nhìn animation: <code>orders-impl</code> phụ thuộc vào <code>billing-api</code> thì compile bình thường, nhưng nếu gọi thẳng vào <code>billing-impl</code> thì không compile được, vì impl không nằm trên compile classpath. Nghĩa là Gradle ép các domain chỉ nói chuyện với nhau qua api, không ai lách được.</p>
+  </aside>
+</section>
+
+<!-- 1.2 three layers -->
+<section class="l-cards" data-section="Part 1 · How a service is put together">
+  <header class="s-head">
+    <p class="eyebrow">three layers, no skips</p>
+    <h2>Controller → Manager → Repository. Logic lives in one known place.</h2>
+  </header>
+  <div class="s-body">
+    <div class="cards c3">
+      <div class="card">
+        <span class="card-kicker">*Controller</span>
+        <h3>Takes the request</h3>
+        <p>Parses input, calls one manager, returns a response DTO. No business logic. No hand-written token or role checks.</p>
+      </div>
+      <div class="card is-lit">
+        <span class="card-kicker">*Manager</span>
+        <h3>Owns the logic</h3>
+        <p>Business rules, transactions, calls to repositories and services. Returns <code>Either</code>, never throws for expected failures.</p>
+      </div>
+      <div class="card">
+        <span class="card-kicker">*Repository</span>
+        <h3>Talks to the database</h3>
+        <p>Exposed DSL, one table family per repository. Every read filters <code>deleted_at IS NULL</code>.</p>
+      </div>
+    </div>
+    <p class="caption"><b>*Service is a different thing:</b> only for classes that talk to an outside system (email, S3, a vendor API) through Retrofit. If it has business rules in it, it's a Manager with the wrong name.</p>
+  </div>
+  <aside class="notes">
+    <h4>Dàn ý</h4>
+    <ul>
+      <li>⏱ 2,5 phút</li>
+      <li>Ba layer, không được nhảy cóc: controller không gọi repository</li>
+      <li>Controller mỏng; quyền và role khai báo bằng <code>@Secured</code>, không tự viết tay</li>
+      <li>Manager giữ logic và transaction, trả <code>Either</code></li>
+      <li>Repository: Exposed, luôn lọc <code>deleted_at</code></li>
+      <li><b>Nói thêm (không có trên slide):</b> kiểm tra "resource này có thuộc org của user không" nằm ở <b>manager</b>. Ví dụ <code>DepartmentManager.update</code>: so <code>requesterOrganizationId</code> với <code>department.organizationId</code>, khác thì trả <code>USER_PERMISSION_INSUFFICIENT</code></li>
+      <li>Service ≠ Manager: Service chỉ để gọi ra ngoài</li>
+    </ul>
+    <h4>Full note</h4>
+    <p>Đây là quy tắc quan trọng nhất của backend: request luôn đi Controller, rồi Manager, rồi Repository, không có đường tắt. Controller không bao giờ inject repository, kể cả chỉ để đọc một dòng.</p>
+    <p>Controller rất mỏng: đọc input, gọi đúng một manager, trả về response DTO. Không có business logic. Về quyền: role và đăng nhập được khai báo bằng annotation <code>@Secured</code> trên method, còn token thì filter của Micronaut xử lý. Controller không tự parse token hay tự viết if để kiểm tra role.</p>
+    <p>Có một câu hỏi các bạn sẽ gặp ngay: vậy kiểm tra "resource này có thuộc về tổ chức của user không" nằm ở đâu? Câu trả lời là ở manager. Controller lấy <code>organizationId</code> từ claims của token rồi truyền xuống. Manager đọc resource lên, so organization của resource với organization của người gọi, khác thì trả về lỗi <code>USER_PERMISSION_INSUFFICIENT</code>. Các bạn sẽ thấy đúng đoạn này trong <code>DepartmentManager.update</code> và <code>delete</code> lúc live demo. Có những endpoint nhận <code>organizationId</code> trong request body thì Olympus dùng thêm annotation <code>@CheckOrganizationMatch</code> để chặn sớm ở controller.</p>
+    <p>Manager là nơi duy nhất chứa business rule. Nó mở transaction, gọi repository, gọi service, và trả về <code>Either</code>: bên trái là lỗi, bên phải là kết quả. Lỗi dự đoán được thì không throw.</p>
+    <p>Repository chỉ nói chuyện với database bằng Exposed DSL. Mỗi repository lo một nhóm bảng, và mọi câu đọc đều lọc <code>deleted_at IS NULL</code>, vì Spartan soft delete chứ không xoá thật.</p>
+    <p>Cuối cùng, Service là một thứ khác hẳn: chỉ dùng cho class gọi ra hệ thống bên ngoài như email, S3 hay API của vendor. Nếu một class tên Service mà có business rule bên trong, thì thực chất nó là một Manager bị đặt sai tên.</p>
+  </aside>
+</section>
+
+<!-- 1.3 request path -->
+<section class="l-figure is-stacked" data-section="Part 1 · How a service is put together">
+  <header class="s-head">
+    <p class="eyebrow">the request path</p>
+    <h2>One request goes down every layer and back.</h2>
+  </header>
+  <div class="s-body">
+    <div class="fig-row">
+      <figure class="fig">
+        <svg class="dg dg-anim" viewBox="0 56 830 234" role="img" aria-label="A request goes from the client through controller, manager and repository to Postgres and back. On an expected failure the manager returns a left value, the controller throws, and the exception handler answers with an error JSON.">
+          <path class="wire" d="M130 132H710"/>
+          <path class="wire wire-soft" d="M425 164V226M490 254H540"/>
+          <path id="rp-all" class="rail" d="M70 132H765"/>
+          <path id="rp-e1" class="rail" d="M70 132H425"/>
+          <path id="rp-e2" class="rail" d="M425 132H245"/>
+          <path id="rp-e3" class="rail" d="M245 164V226"/>
+          <path id="rp-e4" class="rail" d="M150 254H70V164"/>
+
+          <g data-scene="ok" data-loop="7">
+            <circle class="pkt" r="7" data-along="#rp-all" data-at="0.3" data-dur="2.6"/>
+            <circle class="pkt pkt-ok" r="7" data-along="#rp-all" data-at="3.4" data-dur="2.6" data-rev/>
+            <g class="tag tag-req" data-show="0.7 1.9">
+              <rect x="268" y="72" width="134" height="26" rx="13"/>
+              <text x="335" y="90">request DTO</text>
+            </g>
+            <g class="tag tag-req" data-show="2.0 3.3">
+              <rect x="652" y="72" width="76" height="26" rx="13"/>
+              <text x="690" y="90">SQL</text>
+            </g>
+            <g class="tag tag-ok" data-show="3.6 4.6">
+              <rect x="612" y="72" width="76" height="26" rx="13"/>
+              <text x="650" y="90">rows</text>
+            </g>
+            <g class="tag tag-ok" data-show="5.0 6.9">
+              <rect x="64" y="72" width="182" height="26" rx="13"/>
+              <text x="155" y="90">200 · response JSON</text>
+            </g>
+          </g>
+
+          <g data-scene="err" data-loop="7.4">
+            <circle class="pkt" r="7" data-along="#rp-e1" data-at="0.3" data-dur="1.3"/>
+            <circle class="pkt pkt-err" r="7" data-along="#rp-e2" data-at="1.9" data-dur="0.8"/>
+            <circle class="pkt pkt-err" r="7" data-along="#rp-e3" data-at="3.0" data-dur="0.5"/>
+            <circle class="pkt pkt-err" r="7" data-along="#rp-e4" data-at="4.1" data-dur="1.0"/>
+            <g class="tag tag-err" data-show="1.6 2.7">
+              <rect x="340" y="72" width="170" height="26" rx="13"/>
+              <text x="425" y="90">.left(NOT_FOUND)</text>
+            </g>
+            <rect class="glow glow-err" x="176" y="96" width="138" height="72" rx="14" data-show="2.7 3.6"/>
+            <g class="tag tag-err" data-show="2.7 3.6">
+              <rect x="150" y="62" width="190" height="26" rx="13"/>
+              <text x="245" y="80">getOrThrow() throws</text>
+            </g>
+            <rect class="glow glow-err" x="146" y="222" width="198" height="64" rx="14" data-show="3.5 4.3"/>
+            <g class="tag tag-err" data-show="5.1 7.2">
+              <rect x="10" y="62" width="200" height="26" rx="13"/>
+              <text x="110" y="80">404 · { message, code }</text>
+            </g>
+          </g>
+
+          <rect class="box box-req" x="10" y="100" width="120" height="64" rx="12"/>
+          <text x="70" y="138" class="t-strong t-mid">Client</text>
+          <rect class="box box-app" x="180" y="100" width="130" height="64" rx="12"/>
+          <text x="245" y="138" class="t-strong t-mid">Controller</text>
+          <rect class="box box-app" x="360" y="100" width="130" height="64" rx="12"/>
+          <text x="425" y="138" class="t-strong t-mid">Manager</text>
+          <rect class="box box-app" x="540" y="100" width="130" height="64" rx="12"/>
+          <text x="605" y="138" class="t-strong t-mid">Repository</text>
+          <rect class="box box-db" x="710" y="100" width="110" height="64" rx="12"/>
+          <text x="765" y="138" class="t-strong t-mid">Postgres</text>
+
+          <rect class="box" x="150" y="226" width="190" height="56" rx="12"/>
+          <text x="245" y="259" class="t-mid">Exception handler</text>
+          <rect class="box" x="360" y="226" width="130" height="56" rx="12"/>
+          <text x="425" y="259" class="t-mid">Service</text>
+          <rect class="box-ghost" x="540" y="226" width="130" height="56" rx="12"/>
+          <text x="605" y="259" class="t-mid t-muted">Vendor API</text>
+        </svg>
+      </figure>
+      <ul class="points is-sub">
+        <li>In: JSON body becomes a request DTO, checked at the door</li>
+        <li>Down: controller → manager → repository → SQL</li>
+        <li>Up: entity becomes a response DTO, then JSON</li>
+        <li class="fragment" data-scene="err">Failure: <code>.left()</code> → <code>getOrThrow()</code> → one handler → <code>{ message, code }</code></li>
+      </ul>
+    </div>
+  </div>
+  <aside class="notes">
+    <h4>Dàn ý</h4>
+    <ul>
+      <li>⏱ 2 phút</li>
+      <li>Animation 1: request đi xuống đủ ba layer tới Postgres rồi quay lên</li>
+      <li>JSON → request DTO ở cửa vào; entity → response DTO ở cửa ra</li>
+      <li>Service (nét đứt) là nhánh phụ: manager gọi ra ngoài</li>
+      <li>Bấm next → animation 2: lỗi dự đoán được đi đường nào</li>
+      <li>Thread và connection pool để Part 2</li>
+    </ul>
+    <h4>Full note</h4>
+    <p>Giờ ghép ba layer lại thành đường đi của một request. Nhìn chấm xanh: request đi từ client vào controller. Ở cửa vào, JSON được chuyển thành request DTO và được validate luôn. Controller gọi manager, manager gọi repository, repository chạy SQL xuống Postgres. Đường về thì ngược lại: repository trả entity, manager đổi entity thành response DTO, controller trả về, Micronaut serialize thành JSON với status 200.</p>
+    <p>Nhánh nét đứt phía dưới là Service. Khi manager cần gọi ra ngoài, ví dụ gửi email hay gọi API của vendor, nó gọi qua một Service. Đây là nhánh phụ, không phải một layer nằm giữa manager và repository.</p>
+    <p>(Bấm next.) Giờ là trường hợp lỗi dự đoán được, ví dụ không tìm thấy order. Manager không throw mà trả về <code>.left()</code> với mã lỗi. Controller gọi <code>getOrThrow()</code> ở cuối, lúc này mới throw <code>ClientException</code>. Exception đó được một handler duy nhất của cả app bắt lại và trả về JSON <code>{ message, code }</code> với status lấy từ mã lỗi. Không ai tự build JSON lỗi bằng tay.</p>
+    <p>Ở đây mình cố tình chưa nói tới thread hay connection pool. Phần đó nằm ở Part 2.</p>
+  </aside>
+</section>
+
+<!-- 1.4 wiring and config -->
+<section class="l-code" data-section="Part 1 · How a service is put together">
+  <header class="s-head">
+    <p class="eyebrow">wiring and config</p>
+    <h2>Beans are built in factories. Numbers live in config.</h2>
+  </header>
+  <div class="s-body">
+    <div class="cols">
+      <div class="card">
+        <h3>@Factory builds plain classes</h3>
+<pre class="is-small"><code class="kotlin" data-trim>
+@Factory
+@Requires(
+  property = "carrier.enabled", value = "true"
+)
+class CarrierFactory {
+  @Singleton
+  fun carrierClient(config: CarrierConfig) =
+    when (config.provider) {
+      "fake" -> FakeCarrierClient()
+      else -> HttpCarrierClient(config)
+    }
+}
+</code></pre>
+        <p>No <code>@Singleton</code> on implementation classes. One file shows what is built.</p>
+      </div>
+      <div class="card">
+        <h3>application.yml, not the code</h3>
+<pre class="is-small"><code class="yaml" data-trim>
+carrier:
+  enabled: ${CARRIER_ENABLED:true}
+  provider: ${CARRIER_PROVIDER:fake}
+  timeout: ${CARRIER_TIMEOUT:3s}
+orders:
+  list-limit-max: 200
+</code></pre>
+        <p>Limits, timeouts, switches: a typed config class reads them. One place to look, one value per environment, no code change to tune.</p>
+      </div>
+    </div>
+  </div>
+  <aside class="notes">
+    <h4>Dàn ý</h4>
+    <ul>
+      <li>⏱ 1,5 phút, nói lướt</li>
+      <li>Bean tạo trong class <code>@Factory</code>, không gắn <code>@Singleton</code> lên class implementation</li>
+      <li>Olympus: <code>runtime/factory/</code> (<code>ManagerFactory</code>, <code>RepositoryFactory</code>…)</li>
+      <li>Ví dụ có thật: <code>ExtractionFactory</code> chọn fake hay OpenAI theo config; <code>ItviecFactory</code> dùng <code>@Requires(property = …)</code></li>
+      <li>Số, timeout, công tắc: nằm trong <code>application.yml</code>, ghi đè bằng env var</li>
+    </ul>
+    <h4>Full note</h4>
+    <p>Ở Spartan, bean không được tạo bằng cách gắn <code>@Singleton</code> lên class implementation. Thay vào đó mỗi nhóm bean có một class <code>@Factory</code>, với từng method trả về một bean. Trong Olympus các factory nằm ở <code>runtime/factory/</code>: <code>ManagerFactory</code>, <code>RepositoryFactory</code>, <code>ServiceFactory</code> và vài cái khác. Lợi ích là mở một file là thấy được bean nào được tạo, từ dependency nào, và trong điều kiện nào. Ngoại lệ duy nhất là scheduler, vì Micronaut chỉ tìm <code>@Scheduled</code> trên bean thật.</p>
+    <p>Ví dụ trên slide mô phỏng hai factory có thật trong Olympus. <code>ExtractionFactory</code> đọc config <code>cv-extraction.provider</code>: nếu là <code>fake</code> thì tạo extractor giả để chạy local và test, còn <code>openai</code> thì tạo client thật với timeout lấy từ config. <code>ItviecFactory</code> thì gắn <code>@Requires(property = "app.itviec.enabled")</code> ở cấp class: môi trường nào không bật thì cả nhóm bean không được tạo.</p>
+    <p>Bên phải là config. Giới hạn, timeout, công tắc bật tắt đều nằm trong <code>application.yml</code>, đọc qua một config class có kiểu, và mỗi giá trị có thể bị ghi đè bằng biến môi trường. Lợi ích: muốn biết timeout là bao nhiêu thì chỉ có một chỗ để tìm, mỗi môi trường đặt một giá trị riêng, và muốn chỉnh thì không phải sửa code.</p>
+  </aside>
+</section>
+
+<!-- 1.5 API style -->
+<section class="l-table" data-section="Part 1 · How a service is put together">
+  <header class="s-head">
+    <p class="eyebrow">the API style</p>
+    <h2>RPC over HTTP. One style across every service.</h2>
+  </header>
+  <div class="s-body">
+    <table class="tbl">
+      <thead>
+        <tr><th>Rule</th><th>Looks like</th><th>Why</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>GET only when the whole input fits in a query</td>
+          <td><code>@Get("/detail")</code> + <code>?id=…</code></td>
+          <td>Read one thing by its id.</td>
+        </tr>
+        <tr>
+          <td>Lists are a POST, page in the body</td>
+          <td><code>@Post("/list")</code><br /><code>{ offset, limit, filter, sort }</code></td>
+          <td>Filters and sort don't fit in a URL.</td>
+        </tr>
+        <tr>
+          <td>Every change is a POST with a verb</td>
+          <td><code>@Post("/cancel")</code>, <code>/update</code>, <code>/delete</code></td>
+          <td>No PUT, PATCH, DELETE. No path params.</td>
+        </tr>
+        <tr>
+          <td>Paths: <code>/api/v1</code>, plural, kebab-case</td>
+          <td><code>@Controller("/api/v1/orders")</code></td>
+          <td>Same shape for every entity.</td>
+        </tr>
+        <tr>
+          <td>snake_case on the wire, camelCase in code</td>
+          <td><code>created_at ↔ createdAt</code><br /><code>@QueryValue("order_id")</code></td>
+          <td>Jackson converts bodies. Multi-word query params need an explicit name.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <aside class="notes">
+    <h4>Dàn ý</h4>
+    <ul>
+      <li>⏱ 3,5 phút</li>
+      <li>Chỉ hai verb: GET và POST. Chọn theo <b>dạng input</b>, không theo "đọc hay ghi"</li>
+      <li>GET: chỉ khi input nằm gọn trong query string, thường là đọc một thứ theo id</li>
+      <li>List là POST vì filter/sort/phân trang nằm trong body (<code>PageableRequest</code>)</li>
+      <li>Thay đổi: POST + động từ. Không PUT/PATCH/DELETE, không path param</li>
+      <li>Olympus: 17/23 controller dùng <code>/api/v1/…</code>; 6 controller cũ chưa có v1 (vd <code>/api/department</code>), code mới luôn dùng v1</li>
+      <li>snake_case trên wire; query param nhiều chữ phải đặt tên</li>
+      <li>Nguồn: <code>apps/service/.claude/rules/backend-micronaut/API_DESIGN.md</code></li>
+    </ul>
+    <h4>Full note</h4>
+    <p>API của Spartan theo kiểu RPC chạy trên HTTP, và mọi service dùng cùng một kiểu. Nguồn chính thức là file <code>API_DESIGN.md</code> trong <code>.claude/rules</code> của repo. Lưu ý: tài liệu HTTP API Design Guidelines cũ trên Notion đã lỗi thời ở vài điểm, cứ theo rule trong repo.</p>
+    <p>Chỉ có hai verb là GET và POST. Cách chọn không phải "đọc thì GET, ghi thì POST", mà là: GET chỉ dùng khi toàn bộ input nằm gọn trong query string, điển hình là đọc một thứ theo id, ví dụ <code>/detail?id=…</code>.</p>
+    <p>Vì vậy list là POST. Một màn hình danh sách có filter, sort, search và phân trang, những thứ đó không nhét gọn vào URL được, nên đi trong body: <code>offset</code>, <code>limit</code>, <code>filter</code>, <code>sort</code>. Request DTO của list implement interface <code>PageableRequest</code>. Không dùng <code>page</code>/<code>size</code>.</p>
+    <p>Mọi thay đổi là POST kèm một động từ: <code>/cancel</code>, <code>/update</code>, <code>/delete</code>. Không có PUT, PATCH, DELETE, và không có path param kiểu <code>/orders/{id}</code>. Id luôn đi trong query hoặc body. Lợi ích: không ai phải tranh luận nên dùng verb nào.</p>
+    <p>Path bắt đầu bằng <code>/api/v1</code>, danh từ số nhiều, viết thường nối bằng gạch ngang. Trong Olympus có 6 controller cũ chưa có <code>v1</code>, ví dụ <code>/api/department</code>; các bạn sẽ thấy khi live demo, nhưng code mới thì luôn dùng <code>/api/v1</code>.</p>
+    <p>Trên wire là snake_case, trong Kotlin là camelCase, Jackson tự chuyển cho body. Riêng query param nhiều chữ thì phải đặt tên tường minh, ví dụ <code>@QueryValue("vacancy_id") vacancyId</code>, nếu không client gửi snake_case sẽ không khớp.</p>
+    <p>Chi tiết về DTO và validation để sang Part 2.</p>
+  </aside>
+</section>
+
+<!-- 1.6 errors as values -->
+<section class="l-code is-dense" data-section="Part 1 · How a service is put together" data-footer="off">
+  <header class="s-head">
+    <p class="eyebrow">errors</p>
+    <h2>Expected failures are values. Only surprises throw.</h2>
+  </header>
+  <div class="s-body">
+    <div class="cols is-wide-left is-top">
+      <div class="col">
+        <p class="code-title">In the manager</p>
+<pre><code class="kotlin" data-trim>
+override fun cancel(
+  request: CancelOrderRequest
+): Either&lt;ClientException, OrderResponse&gt; {
+  val order = orderRepository.findFirst(id = request.id)
+    ?: return SystemError.ORDER_NOT_FOUND.asException().left()
+  if (order.status != OrderStatus.OPEN) {
+    return SystemError.ORDER_NOT_OPEN.asException().left()
+  }
+  return transaction(db.primary) {
+    val cancelled = orderRepository.cancel(id = order.id)
+    orderEventRepository.insert(OrderEvent.cancelled(order))
+    cancelled.toOrderResponse().right()
+  }
+}
+</code></pre>
+      </div>
+      <div class="col">
+        <p class="code-title">In the controller</p>
+<pre><code class="kotlin" data-trim>
+@Post("/cancel")
+fun cancel(
+  @Valid @Body request: CancelOrderRequest
+): OrderResponse {
+  return orderManager.cancel(request)
+    .getOrThrow()
+}
+</code></pre>
+        <p class="caption"><b>Not found, wrong state, not allowed:</b> all <code>.left()</code>, returned early. The signature tells the caller what can go wrong.</p>
+        <p class="caption"><b>One call at the end.</b> <code>getOrThrow()</code> throws; one handler turns it into the HTTP response.</p>
+        <p class="caption"><b>Two tables, one</b> <code>transaction(db.primary)</code>.</p>
+      </div>
+    </div>
+  </div>
+  <aside class="notes">
+    <h4>Dàn ý</h4>
+    <ul>
+      <li>⏱ 3 phút</li>
+      <li>Manager trả <code>Either&lt;ClientException, T&gt;</code>; lỗi dự đoán được → <code>return …left()</code> sớm</li>
+      <li>Olympus viết kiểu early return <code>.left()</code> / <code>.right()</code>, không dùng <code>either { raise }</code></li>
+      <li>Mã lỗi lấy từ enum <code>SystemError</code> (<code>module-exception</code>)</li>
+      <li>Hai bảng → một <code>transaction(db.primary)</code>; đọc thì <code>db.replica</code></li>
+      <li>Controller: một dòng <code>getOrThrow()</code> ở cuối</li>
+      <li><b>Nói thêm:</b> kiểm tra org cũng là một <code>.left()</code> trong manager (xem <code>DepartmentManager</code>)</li>
+    </ul>
+    <h4>Full note</h4>
+    <p>Quy ước xử lý lỗi: lỗi dự đoán được là giá trị, chỉ những thứ bất ngờ mới throw.</p>
+    <p>Bên trái là manager. Kiểu trả về là <code>Either&lt;ClientException, OrderResponse&gt;</code>. Đọc order lên, không có thì <code>return</code> sớm với <code>SystemError.ORDER_NOT_FOUND.asException().left()</code>. Order không ở trạng thái mở thì cũng <code>return</code> sớm một <code>.left()</code> khác. Không tìm thấy, sai trạng thái, không có quyền, tất cả đều là <code>.left()</code>. Chỉ cần đọc chữ ký hàm là biết hàm này có thể thất bại.</p>
+    <p>Trong Olympus các bạn sẽ thấy đúng kiểu viết early return này, với <code>.left()</code> và <code>.right()</code>. Một số service khác của Spartan dùng block <code>either { }</code> với <code>raise</code>, ý tưởng giống nhau, nhưng ở Olympus thì theo kiểu trên slide.</p>
+    <p>Mọi mã lỗi đều nằm trong enum <code>SystemError</code> ở <code>module-exception</code>: mỗi entry có HTTP status, mã số và message. Thêm lỗi mới là thêm một entry vào đó.</p>
+    <p>Một điểm nữa: cancel ghi vào hai bảng, đổi trạng thái order và thêm một event, nên cả hai nằm trong một <code>transaction(db.primary)</code>. Hai bảng, hai lần ghi, một lần commit. Dữ liệu ghi dở dang là loại bug một tháng sau mới phát hiện. Ghi thì dùng <code>db.primary</code>, đọc thì <code>db.replica</code>; hiện chưa deploy replica nhưng vẫn phải chọn đúng pool.</p>
+    <p>Bên phải là controller: một dòng duy nhất ở cuối, <code>.getOrThrow()</code>. Nếu là <code>.left()</code> thì nó throw <code>ClientException</code>, và <code>CustomExceptionHandler</code> biến exception đó thành response HTTP. Không ai tự build JSON lỗi.</p>
+    <p>Nhắc lại ý ở slide ba layer: kiểm tra "order này có thuộc tổ chức của người gọi không" cũng chỉ là một <code>.left()</code> nữa trong manager. Mình bỏ khỏi slide cho gọn, các bạn sẽ thấy nó trong <code>DepartmentManager</code>.</p>
+  </aside>
+</section>
+
+<!-- 1.7 what review sends back -->
+<section class="l-cards" data-section="Part 1 · How a service is put together" data-footer="off">
+  <header class="s-head">
+    <p class="eyebrow">what review will send back</p>
+    <h2>Eight things every new engineer does here in the first month</h2>
+  </header>
+  <div class="s-body">
+    <div class="review">
+      <div class="review-item"><span class="tag">!!</span><p>Force-unwrap. Use <code>?:</code>, a null check, or <code>requireNotNull</code>.</p></div>
+      <div class="review-item"><span class="tag">layers</span><p>Logic in the controller, or a controller calling a repository.</p></div>
+      <div class="review-item"><span class="tag">N+1</span><p>A repository call inside <code>map</code> or <code>forEach</code>. Batch with <code>listByIds</code>, then <code>associateBy</code>.</p></div>
+      <div class="review-item"><span class="tag">txn</span><p>An email, queue or vendor call inside a transaction. Or two tables written without one.</p></div>
+      <div class="review-item"><span class="tag">counter</span><p>Read a count, add one, write it back. Two pods lose an update. Do the math in one UPDATE.</p></div>
+      <div class="review-item"><span class="tag">magic</span><p>A limit or timeout typed into code. It goes in config.</p></div>
+      <div class="review-item"><span class="tag">launch</span><p><code>GlobalScope</code>, a fire-and-forget launch, <code>runBlocking</code> in a request. Do it now or hand it to a job.</p></div>
+      <div class="review-item"><span class="tag">mock</span><p>Mocking our own repository or manager. Real database; mock only outside systems.</p></div>
+    </div>
+  </div>
+  <aside class="notes">
+    <h4>Dàn ý</h4>
+    <ul>
+      <li>⏱ 3 phút, mỗi mục ~20 giây</li>
+      <li><code>!!</code>: Olympus hiện có 0 chỗ dùng trong code chính, giữ như vậy</li>
+      <li>N+1, counter, txn, launch: đều có rule trong <code>PERFORMANCE.md</code> và <code>TRANSACTIONS.md</code></li>
+      <li>layers, magic: nhắc lại slide ba layer và slide config</li>
+      <li>mock: test đi qua HTTP thật và database thật (Part 2)</li>
+      <li>Chốt Part 1, chuyển sang Part 2</li>
+    </ul>
+    <h4>Full note</h4>
+    <p>Đây là tám thứ mà gần như ai mới vào cũng bị review trả về trong tháng đầu. Biết trước thì đỡ được một vòng review.</p>
+    <p>Một, <code>!!</code>, force-unwrap. Dùng toán tử elvis, một câu if kiểm tra null, hoặc <code>requireNotNull</code> với message rõ ràng. Trong code chính của Olympus hiện không có chỗ nào dùng <code>!!</code>, hãy giữ như vậy.</p>
+    <p>Hai, layers: logic nằm trong controller, hoặc controller gọi thẳng repository.</p>
+    <p>Ba, N+1: gọi repository bên trong <code>map</code> hay <code>forEach</code>, 100 phần tử là 100 câu query. Hãy lấy hết id ra, gọi một lần <code>listByIds</code>, rồi <code>associateBy</code> để tra.</p>
+    <p>Bốn, txn: gọi email, queue hay API vendor bên trong transaction, connection bị giữ trong lúc chờ mạng. Hoặc ngược lại, ghi hai bảng mà không có transaction.</p>
+    <p>Năm, counter: đọc một số đếm lên, cộng một, ghi lại. Hai pod làm cùng lúc thì mất một lần cập nhật. Hãy để SQL tự cộng trong một câu UPDATE.</p>
+    <p>Sáu, magic: giới hạn hay timeout gõ thẳng vào code. Nó thuộc về config.</p>
+    <p>Bảy, launch: <code>GlobalScope</code>, launch rồi bỏ đó, hay <code>runBlocking</code> trong request. Việc gì thì làm ngay trong request, hoặc giao cho một job.</p>
+    <p>Tám, mock: mock repository hay manager của chính mình để test happy path. Test phải chạy với database thật; chỉ mock hệ thống bên ngoài.</p>
+    <p>Đó là hết Part 1. Giờ mình phóng to vào một endpoint.</p>
+  </aside>
+</section>
+
+<!-- ======================================================================
+     PART 2: ANATOMY OF AN ENDPOINT (2.0 – 2.9)
+     ====================================================================== -->
+
+<!-- 2.0 part divider -->
+<section class="l-part" data-section="Part 2 · Anatomy of an endpoint">
+  <div class="s-body">
+    <p class="part-num">part 2 · 20 min</p>
+    <h1>Anatomy of an endpoint</h1>
+    <p class="lead">One endpoint, <code>POST /api/v1/orders/cancel</code>, taken apart file by file.</p>
+    <div class="chips">
+      <span class="chip">DTOs</span>
+      <span class="chip">the contract</span>
+      <span class="chip">error responses</span>
+      <span class="chip">threads and blocking</span>
+      <span class="chip">HTTP tests</span>
+    </div>
+  </div>
+  <aside class="notes">
+    <h4>Dàn ý</h4>
+    <ul>
+      <li>⏱ 15 giây</li>
+      <li>Part 1 là quy ước chung; Part 2 mổ xẻ một endpoint cụ thể</li>
+      <li>Endpoint mẫu: <code>POST /api/v1/orders/cancel</code></li>
+      <li>Năm chủ đề: DTO, contract, response lỗi, thread và blocking, HTTP test</li>
+    </ul>
+    <h4>Full note</h4>
+    <p>Part 1 là quy ước chung cho cả service. Part 2 lấy một endpoint duy nhất ra mổ xẻ, xem nó gồm những file nào và mỗi file làm gì.</p>
+    <p>Endpoint mẫu là huỷ một order: <code>POST /api/v1/orders/cancel</code>. Ticket đầu tiên của các bạn rất có thể là thêm hoặc sửa đúng một endpoint như vậy, nên phần này là checklist cho ticket đó.</p>
+  </aside>
+</section>
+
+<!-- 2.1 the files of one endpoint -->
+<section class="l-figure" data-section="Part 2 · Anatomy of an endpoint">
+  <header class="s-head">
+    <p class="eyebrow">one endpoint, many files</p>
+    <h2>An endpoint is more than a controller method.</h2>
+  </header>
+  <div class="s-body">
+    <div class="fig-row is-wide">
+      <figure class="fig">
+        <svg class="dg dg-anim" viewBox="0 0 760 360" data-loop="7" role="img" aria-label="The test calls OrderClient, which sends HTTP to OrderController, which calls OrderManager; the answer comes back the same way. DTOs and the client live in module-client, SystemError in module-exception.">
+          <text x="20" y="24" class="t-mono t-muted">module-client</text>
+          <text x="300" y="24" class="t-mono t-muted">api-platform</text>
+          <text x="560" y="24" class="t-mono t-muted">module-exception</text>
+          <text x="20" y="286" class="t-mono t-muted">src/test</text>
+
+          <path class="ln" d="M250 65H275V80H300M250 130H275V100H300"/>
+          <path id="em-1" class="wire" d="M135 296V242"/>
+          <path id="em-2" class="wire" d="M250 216C285 216 270 85 300 85"/>
+          <path id="em-3" class="wire" d="M405 110V190"/>
+          <path class="wire wire-soft" d="M510 215H560"/>
+          <text x="282" y="160" class="t-small t-muted">HTTP</text>
+          <text x="514" y="205" class="t-small t-muted">.left()</text>
+
+          <circle class="pkt" r="7" data-along="#em-1" data-at="0.3" data-dur="0.6"/>
+          <circle class="pkt" r="7" data-along="#em-2" data-at="1" data-dur="0.9"/>
+          <circle class="pkt" r="7" data-along="#em-3" data-at="2" data-dur="0.7"/>
+          <circle class="pkt pkt-ok" r="7" data-along="#em-3" data-at="3" data-dur="0.7" data-rev/>
+          <circle class="pkt pkt-ok" r="7" data-along="#em-2" data-at="3.8" data-dur="0.9" data-rev/>
+          <circle class="pkt pkt-ok" r="7" data-along="#em-1" data-at="4.8" data-dur="0.6" data-rev/>
+
+          <rect class="box" x="20" y="40" width="230" height="50" rx="10"/>
+          <text x="135" y="70" class="t-mono t-mid">CancelOrderRequest</text>
+          <rect class="box" x="20" y="105" width="230" height="50" rx="10"/>
+          <text x="135" y="135" class="t-mono t-mid">OrderResponse</text>
+          <rect class="box box-req" x="20" y="191" width="230" height="50" rx="10"/>
+          <text x="135" y="221" class="t-mono t-mid">OrderClient</text>
+          <rect class="box box-app" x="300" y="60" width="210" height="50" rx="10"/>
+          <text x="405" y="90" class="t-mono t-mid">OrderController</text>
+          <rect class="box box-app" x="300" y="190" width="210" height="50" rx="10"/>
+          <text x="405" y="220" class="t-mono t-mid">OrderManager</text>
+          <rect class="box" x="560" y="190" width="180" height="50" rx="10"/>
+          <text x="650" y="220" class="t-mono t-mid">SystemError</text>
+          <rect class="box box-ok" x="20" y="296" width="230" height="50" rx="10"/>
+          <text x="135" y="326" class="t-mono t-mid">OrderControllerTest</text>
+
+          <g class="tag tag-ok" data-show="5.4 6.9">
+            <rect x="262" y="309" width="180" height="24" rx="12"/>
+            <text x="352" y="326">assert code + DB</text>
+          </g>
+        </svg>
+      </figure>
+      <div class="col">
+        <ul class="points is-sub">
+          <li><b>DTOs:</b> the shapes on the wire</li>
+          <li><b>Client:</b> the contract, in code</li>
+          <li><b>Controller, manager:</b> the work</li>
+          <li><b>SystemError:</b> every error it can return</li>
+          <li><b>Test:</b> calls the client over real HTTP</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <aside class="notes">
+    <h4>Dàn ý</h4>
+    <ul>
+      <li>⏱ 2 phút</li>
+      <li>Một endpoint = ít nhất 7 file ở 3 module, chưa kể repository và migration</li>
+      <li><code>module-client</code>: request DTO, response DTO, Retrofit client</li>
+      <li><code>api-platform</code>: controller, manager; <code>module-exception</code>: <code>SystemError</code></li>
+      <li>Animation: test → client → HTTP → controller → manager rồi quay về, test assert</li>
+      <li>Các slide sau đi lần lượt từng phần</li>
+    </ul>
+    <h4>Full note</h4>
+    <p>Khi nghĩ tới "thêm một endpoint", nhiều bạn chỉ nghĩ tới một method trong controller. Thực ra một endpoint hoàn chỉnh trải qua ít nhất bảy file ở ba module, chưa tính repository và migration nếu cần bảng mới.</p>
+    <p>Bên trái là <code>module-client</code>: request DTO, response DTO, và <code>OrderClient</code>, một interface Retrofit mô tả endpoint. Ở giữa là <code>api-platform</code> với controller và manager. Bên phải là <code>SystemError</code> trong <code>module-exception</code>, nơi khai báo mọi mã lỗi. Phía dưới là test.</p>
+    <p>Nhìn animation: test không gọi controller trực tiếp. Nó gọi <code>OrderClient</code>, client gửi một request HTTP thật vào controller, controller gọi manager, rồi kết quả đi ngược về để test assert mã lỗi và trạng thái trong database.</p>
+    <p>Các slide tiếp theo đi lần lượt: DTO, client tức là contract, response lỗi, thread, rồi test.</p>
+  </aside>
+</section>
+
+<!-- 2.2 DTOs -->
+<section class="l-code is-dense" data-section="Part 2 · Anatomy of an endpoint">
+  <header class="s-head">
+    <p class="eyebrow">DTOs</p>
+    <h2>DTOs are the shape on the wire. They live in module-client.</h2>
+  </header>
+  <div class="s-body">
+    <div class="cols is-top">
+      <div class="col">
+<pre><code class="kotlin" data-trim>
+@Introspected
+data class CancelOrderRequest(
+  val id: UUID,
+  @field:NotBlank(message = "reason is required")
+  @field:Size(max = 500)
+  val reason: String,
+  val notifyCustomer: Boolean = true
+)
+
+@Introspected
+data class OrderResponse(
+  val id: UUID,
+  val status: OrderStatus,
+  val cancelledAt: Instant?
+)
+</code></pre>
+      </div>
+      <div class="col">
+<pre><code class="json" data-trim>
+{
+  "id": "5f0c…",
+  "reason": "Customer changed their mind",
+  "notify_customer": true
+}
+</code></pre>
+        <ul class="points is-sub">
+          <li><code>@field:</code> on every rule, never a bare <code>@NotBlank</code></li>
+          <li>Non-null, no default: required</li>
+          <li>camelCase in Kotlin, snake_case on the wire</li>
+          <li>Bad input stops at the door: 400</li>
+          <li>Always one object back, never <code>null</code></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <aside class="notes">
+    <h4>Dàn ý</h4>
+    <ul>
+      <li>⏱ 3 phút</li>
+      <li>DTO nằm trong <code>module-client/request</code> và <code>/response</code>; không khai báo trong file controller</li>
+      <li>Validation: <code>@field:NotBlank</code>, <code>@field:Size</code>… (Olympus: 48 chỗ <code>@field:NotBlank</code>); message dạng <code>"reason is required"</code></li>
+      <li>Non-null không default = bắt buộc; <code>?</code> hoặc có default = tuỳ chọn</li>
+      <li>JSON bên phải: Jackson tự đổi <code>notifyCustomer</code> ↔ <code>notify_customer</code></li>
+      <li><code>@Valid @Body</code> ở controller → sai thì 400, manager không bao giờ thấy</li>
+      <li>Không có gì để trả thì <code>SuccessResponse&lt;Boolean&gt;</code>; list thì <code>PaginationData</code></li>
+    </ul>
+    <h4>Full note</h4>
+    <p>DTO là hình dạng của dữ liệu trên wire. Mọi request và response DTO đều nằm trong <code>module-client</code>, thư mục <code>request</code> và <code>response</code>. Rule của repo cấm khai báo data class ngay trong file controller, vì test và client Retrofit cũng dùng chung các DTO này.</p>
+    <p>Validation đặt trên field với tiền tố <code>@field:</code>, ví dụ <code>@field:NotBlank</code>, <code>@field:Size</code>, <code>@field:Min</code>. Đây là cách viết rule của Olympus yêu cầu; một <code>@NotBlank</code> trần trên constructor property của Kotlin có thể bị gắn vào tham số constructor thay vì field. Message theo mẫu "tên field is required".</p>
+    <p>Bắt buộc hay tuỳ chọn được thể hiện bằng kiểu: non-null mà không có giá trị mặc định là bắt buộc. Có dấu hỏi hoặc có default là tuỳ chọn. Ví dụ <code>UpdateDepartmentRequest</code> trong Olympus để <code>name</code> nullable, nghĩa là "không gửi thì giữ tên cũ".</p>
+    <p>Bên phải là JSON thật trên wire: <code>notifyCustomer</code> trong Kotlin trở thành <code>notify_customer</code>. Jackson tự chuyển, không cần annotation.</p>
+    <p>Controller nhận DTO bằng <code>@Valid @Body</code>. Input sai bị chặn ngay ở cửa với status 400, manager không bao giờ nhìn thấy request đó.</p>
+    <p>Response thì luôn là một object, không bao giờ <code>null</code>. Endpoint không có gì để trả như update hay delete thì trả <code>SuccessResponse&lt;Boolean&gt;</code>; list thì trả <code>PaginationData</code>.</p>
+  </aside>
+</section>
+
+<!-- 2.3 the contract -->
+<section class="l-code" data-section="Part 2 · Anatomy of an endpoint">
+  <header class="s-head">
+    <p class="eyebrow">the contract</p>
+    <h2>The contract is code: a Retrofit interface next to the DTOs.</h2>
+  </header>
+  <div class="s-body">
+    <div class="cols is-wide-left is-top">
+      <div class="col">
+<pre><code class="kotlin" data-trim>
+interface OrderClient {
+  @POST("/api/v1/orders/cancel")
+  suspend fun cancel(
+    @Header("Authorization") token: String,
+    @Body request: CancelOrderRequest
+  ): Either&lt;ErrorResponse, OrderResponse&gt;
+}
+</code></pre>
+        <div class="callout is-warn">
+          <svg class="icon"><use href="#i-alert"/></svg>
+          <span>Renaming a field or adding a required one breaks every client already shipped. Change the contract on purpose.</span>
+        </div>
+      </div>
+      <div class="col">
+        <ul class="points is-sub">
+          <li>Same DTOs as the controller: one definition</li>
+          <li>HTTP tests call the API through it</li>
+          <li>Rename a field and the tests stop compiling</li>
+          <li>Swagger is generated from the controller: the contract the web reads</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <aside class="notes">
+    <h4>Dàn ý</h4>
+    <ul>
+      <li>⏱ 2 phút</li>
+      <li>Mỗi controller có một Retrofit client trong <code>module-client</code> (Olympus: <code>DepartmentClient</code>, <code>VacancyClient</code>…)</li>
+      <li>Dùng đúng DTO của controller, trả <code>Either&lt;ErrorResponse, T&gt;</code></li>
+      <li>Test gọi API qua client này → đổi DTO là test hỏng lúc compile</li>
+      <li>Phía web: Swagger sinh từ controller là contract (slide sau)</li>
+      <li>Đổi contract là đổi có chủ đích: field đổi tên hoặc field bắt buộc mới phá client cũ</li>
+    </ul>
+    <h4>Full note</h4>
+    <p>Contract của một endpoint không chỉ nằm trong tài liệu, nó là code. Với mỗi controller, <code>module-client</code> có một interface Retrofit mô tả đúng các endpoint đó: path, header, body và kiểu trả về. Trong Olympus các bạn sẽ thấy <code>DepartmentClient</code>, <code>VacancyClient</code> và nhiều client khác.</p>
+    <p>Client dùng chính các DTO mà controller dùng, nên chỉ có một định nghĩa duy nhất. Kiểu trả về là <code>Either&lt;ErrorResponse, OrderResponse&gt;</code>: lỗi HTTP nằm bên trái, kết quả nằm bên phải.</p>
+    <p>HTTP test gọi API qua client này. Hệ quả: nếu ai đó đổi tên một field trong DTO, test không compile được nữa, và lỗi được phát hiện trước khi lên review.</p>
+    <p>Phía web không dùng Retrofit. Web đọc Swagger, cũng được sinh ra từ controller. Slide sau nói tiếp.</p>
+    <p>Lưu ý ở callout: đổi contract phải có chủ đích. Đổi tên field, hoặc thêm một field bắt buộc, sẽ làm hỏng mọi client đang chạy, kể cả bản web đã deploy. Nếu buộc phải đổi thì thêm field mới dạng tuỳ chọn trước, hoặc hỏi lead.</p>
+  </aside>
+</section>
+
+<!-- 2.4 the frontend side -->
+<section class="l-figure is-stacked" data-section="Part 2 · Anatomy of an endpoint">
+  <header class="s-head">
+    <p class="eyebrow">the other side of the contract</p>
+    <h2>The web never hand-writes an API call.</h2>
+  </header>
+  <div class="s-body">
+    <div class="fig-row">
+      <figure class="fig">
+        <svg class="dg dg-anim" viewBox="0 0 1120 170" data-loop="5" role="img" aria-label="The controller produces an OpenAPI spec; pnpm gen-api runs Orval on it and writes a typed hook that the React page calls.">
+          <path class="wire" d="M190 75H930"/>
+          <path id="fe-rail" class="rail" d="M95 75H1025"/>
+          <circle class="pkt" r="7" data-along="#fe-rail" data-at="0.3" data-dur="3.4"/>
+
+          <rect class="box box-app" x="0" y="40" width="190" height="70" rx="12"/>
+          <text x="95" y="71" class="t-mono t-mid">@Controller</text>
+          <text x="95" y="95" class="t-small t-muted t-mid">Kotlin</text>
+          <rect class="box" x="232" y="40" width="190" height="70" rx="12"/>
+          <text x="327" y="71" class="t-mono t-mid">OpenAPI spec</text>
+          <text x="327" y="95" class="t-small t-muted t-mid">/swagger/*.yml</text>
+          <rect class="box box-req" x="464" y="40" width="190" height="70" rx="12"/>
+          <text x="559" y="71" class="t-mono t-mid">pnpm gen-api</text>
+          <text x="559" y="95" class="t-small t-muted t-mid">Orval</text>
+          <rect class="box box-req" x="696" y="40" width="190" height="70" rx="12"/>
+          <text x="791" y="71" class="t-mono t-mid">useCancelOrder()</text>
+          <text x="791" y="95" class="t-small t-muted t-mid">hook + types</text>
+          <rect class="box" x="928" y="40" width="190" height="70" rx="12"/>
+          <text x="1023" y="71" class="t-mono t-mid">Orders page</text>
+          <text x="1023" y="95" class="t-small t-muted t-mid">React</text>
+
+          <path class="ln" d="M0 130H422M464 130H1118"/>
+          <text x="0" y="156" class="t-small t-muted">apps/service</text>
+          <text x="464" y="156" class="t-small t-muted">apps/web · src/__generated__/</text>
+        </svg>
+      </figure>
+      <ul class="points is-sub">
+        <li><code>pnpm gen-api</code> reads Swagger from a running backend</li>
+        <li>New endpoint? Add it to <code>endpoints.allowlist.ts</code> first</li>
+        <li>Types are camelCase; <code>axios-case-converter</code> handles the wire</li>
+        <li>Never edit <code>__generated__/</code> by hand</li>
+      </ul>
+    </div>
+  </div>
+  <aside class="notes">
+    <h4>Dàn ý</h4>
+    <ul>
+      <li>⏱ 1,5 phút, chỉ giới thiệu, chi tiết ở buổi frontend</li>
+      <li>Controller → OpenAPI spec (Swagger) → <code>pnpm gen-api</code> (Orval) → hook + types → page</li>
+      <li>Olympus: hook nằm ở <code>apps/web/src/__generated__/hooks/</code>, vd <code>useUpdateDepartment.ts</code></li>
+      <li>Endpoint mới phải được thêm vào <code>src/__generated__/mutators/endpoints.allowlist.ts</code></li>
+      <li>Backend phải đang chạy khi gen</li>
+    </ul>
+    <h4>Full note</h4>
+    <p>Đây là mặt bên kia của contract. Web không bao giờ tự viết lời gọi API bằng tay.</p>
+    <p>Micronaut sinh OpenAPI spec, tức Swagger, từ chính các controller. Bên web chạy <code>pnpm gen-api</code>; lệnh này dùng Orval đọc spec từ backend đang chạy, rồi sinh ra type và React Query hook, ví dụ <code>useCancelOrder</code>. Trang React chỉ việc gọi hook. Trong Olympus các hook nằm ở <code>apps/web/src/__generated__/hooks/</code>, ví dụ <code>useUpdateDepartment.ts</code>.</p>
+    <p>Hai lưu ý thực tế. Một, Orval trong Olympus chỉ giữ những endpoint có trong <code>endpoints.allowlist.ts</code>, nên thêm endpoint mới thì phải thêm vào đó trước, không thì chạy gen xong không thấy hook đâu. Hai, type phía web là camelCase; thư viện <code>axios-case-converter</code> đổi sang snake_case khi gửi đi và đổi ngược lại khi nhận về.</p>
+    <p>Và không sửa tay bất cứ file nào trong <code>__generated__</code>, lần gen sau sẽ ghi đè. Chi tiết về frontend có một buổi riêng.</p>
+  </aside>
+</section>
+
+<!-- 2.5 error responses -->
+<section class="l-figure is-stacked" data-section="Part 2 · Anatomy of an endpoint" data-footer="off">
+  <header class="s-head">
+    <p class="eyebrow">error responses</p>
+    <h2>One error shape. The status comes from SystemError.</h2>
+  </header>
+  <div class="s-body">
+    <div class="fig-row">
+      <figure class="fig">
+        <svg class="dg dg-anim" viewBox="0 0 1000 300" role="img" aria-label="Three kinds of failure. An expected failure goes through the exception handler with the status of its SystemError. Invalid input is refused before the controller with 400. Any other exception becomes a 500 with a generic message.">
+          <path class="wire" d="M130 70H540"/>
+          <path class="wire wire-soft" d="M250 100V190M430 100V190"/>
+          <path class="wire wire-soft" d="M140 220H70V100M520 250V280H40V100"/>
+          <path id="er-1" class="rail" d="M70 70H610"/>
+          <path id="er-2" class="rail" d="M610 70H430"/>
+          <path id="er-3" class="rail" d="M430 100V190"/>
+          <path id="er-4" class="rail" d="M520 250V280H40V100"/>
+          <path id="er-5" class="rail" d="M70 70H250"/>
+          <path id="er-6" class="rail" d="M250 100V190"/>
+          <path id="er-7" class="rail" d="M140 220H70V100"/>
+
+          <g data-scene="expected" data-loop="7">
+            <circle class="pkt" r="7" data-along="#er-1" data-at="0.3" data-dur="1.4"/>
+            <circle class="pkt pkt-err" r="7" data-along="#er-2" data-at="1.9" data-dur="0.6"/>
+            <circle class="pkt pkt-err" r="7" data-along="#er-3" data-at="2.6" data-dur="0.5"/>
+            <circle class="pkt pkt-err" r="7" data-along="#er-4" data-at="3.4" data-dur="1.4"/>
+            <g class="tag tag-err" data-show="1.7 2.6">
+              <rect x="505" y="4" width="210" height="26" rx="13"/>
+              <text x="610" y="22">.left(ORDER_NOT_FOUND)</text>
+            </g>
+            <rect class="glow glow-err" x="396" y="186" width="248" height="68" rx="14" data-show="3.1 3.9"/>
+            <rect class="box box-err" x="700" y="40" width="290" height="210" rx="12"/>
+            <text x="720" y="76" class="t-mono t-strong t-err">HTTP 404</text>
+            <text x="720" y="110" class="t-mono">{ "message":</text>
+            <text x="740" y="136" class="t-mono">"Order not found",</text>
+            <text x="728" y="162" class="t-mono">"code": 12001 }</text>
+            <text x="720" y="230" class="t-small t-muted">status, code, message: one enum entry</text>
+          </g>
+
+          <g data-scene="invalid" data-loop="5">
+            <circle class="pkt" r="7" data-along="#er-5" data-at="0.3" data-dur="0.8"/>
+            <circle class="pkt pkt-err" r="7" data-along="#er-6" data-at="1.5" data-dur="0.5"/>
+            <circle class="pkt pkt-err" r="7" data-along="#er-7" data-at="2.2" data-dur="1"/>
+            <rect class="glow glow-err" x="176" y="36" width="148" height="68" rx="14" data-show="1.1 2.2"/>
+            <g class="tag tag-err" data-show="1.1 2.2">
+              <rect x="160" y="4" width="180" height="26" rx="13"/>
+              <text x="250" y="22">reason is blank</text>
+            </g>
+            <rect class="box box-err" x="700" y="40" width="290" height="210" rx="12"/>
+            <text x="720" y="76" class="t-mono t-strong t-err">HTTP 400</text>
+            <text x="720" y="110" class="t-mono">{ "message":</text>
+            <text x="740" y="136" class="t-mono">"request.reason:</text>
+            <text x="748" y="162" class="t-mono">reason is required",</text>
+            <text x="728" y="188" class="t-mono">"code": 400 }</text>
+            <text x="720" y="230" class="t-small t-muted">the manager never ran</text>
+          </g>
+
+          <g data-scene="surprise" data-loop="7">
+            <circle class="pkt" r="7" data-along="#er-1" data-at="0.3" data-dur="1.4"/>
+            <circle class="pkt pkt-err" r="7" data-along="#er-2" data-at="1.9" data-dur="0.6"/>
+            <circle class="pkt pkt-err" r="7" data-along="#er-3" data-at="2.6" data-dur="0.5"/>
+            <circle class="pkt pkt-err" r="7" data-along="#er-4" data-at="3.4" data-dur="1.4"/>
+            <g class="tag tag-err" data-show="1.7 2.6">
+              <rect x="510" y="4" width="200" height="26" rx="13"/>
+              <text x="610" y="22">NullPointerException</text>
+            </g>
+            <rect class="glow glow-err" x="396" y="186" width="248" height="68" rx="14" data-show="3.1 3.9"/>
+            <rect class="box box-err" x="700" y="40" width="290" height="210" rx="12"/>
+            <text x="720" y="76" class="t-mono t-strong t-err">HTTP 500</text>
+            <text x="720" y="110" class="t-mono">{ "message":</text>
+            <text x="740" y="136" class="t-mono">"The server cannot</text>
+            <text x="740" y="162" class="t-mono">process the request…",</text>
+            <text x="728" y="188" class="t-mono">"code": 1 }</text>
+            <text x="720" y="230" class="t-small t-muted">logged as an error, details hidden</text>
+          </g>
+
+          <rect class="box box-req" x="10" y="40" width="120" height="60" rx="12"/>
+          <text x="70" y="76" class="t-strong t-mid">Client</text>
+          <rect class="box" x="180" y="40" width="140" height="60" rx="12"/>
+          <text x="250" y="76" class="t-mono t-mid">@Valid</text>
+          <rect class="box box-app" x="360" y="40" width="140" height="60" rx="12"/>
+          <text x="430" y="76" class="t-strong t-mid">Controller</text>
+          <rect class="box box-app" x="540" y="40" width="140" height="60" rx="12"/>
+          <text x="610" y="76" class="t-strong t-mid">Manager</text>
+          <rect class="box" x="140" y="190" width="220" height="60" rx="12"/>
+          <text x="250" y="226" class="t-mid">Error processor</text>
+          <rect class="box" x="400" y="190" width="240" height="60" rx="12"/>
+          <text x="520" y="226" class="t-mid">Exception handler</text>
+        </svg>
+      </figure>
+      <ul class="points is-sub is-one">
+        <li data-scene="expected"><b>Expected:</b> manager returns <code>.left(SystemError.X)</code> → status and code from the enum</li>
+        <li class="fragment" data-scene="invalid"><b>Bad input:</b> <code>@Valid</code> fails before the controller runs → 400</li>
+        <li class="fragment" data-scene="surprise"><b>Surprise:</b> any other exception → 500, a generic message, an error log</li>
+      </ul>
+    </div>
+  </div>
+  <aside class="notes">
+    <h4>Dàn ý</h4>
+    <ul>
+      <li>⏱ 3 phút, bấm next 2 lần để đổi animation</li>
+      <li>Mọi lỗi cùng một khuôn <code>{ message, code }</code>; <code>code</code> là số</li>
+      <li>1. Lỗi dự đoán được: <code>SystemError</code> quyết định status, code, message (<code>CustomExceptionHandler</code>)</li>
+      <li>2. Input sai: chặn trước controller, 400 (<code>CustomErrorResponseProcessor</code>)</li>
+      <li>3. Bất ngờ: 500, message chung chung, log level error</li>
+      <li>Cảnh báo: đọc enum, đừng đoán status. Olympus <code>DEPARTMENT_NOT_FOUND</code> trả <b>400</b>, không phải 404</li>
+    </ul>
+    <h4>Full note</h4>
+    <p>Phía client chỉ thấy một khuôn lỗi duy nhất: JSON có <code>message</code> và <code>code</code>. <code>code</code> là một con số, ví dụ 2407 nghĩa là không đủ quyền. Web dựa vào <code>code</code> để hiển thị đúng thông báo. Có ba con đường dẫn tới response lỗi.</p>
+    <p>Một, lỗi dự đoán được, đang chạy trên màn hình. Manager trả <code>.left()</code> với một entry của <code>SystemError</code>, controller gọi <code>getOrThrow()</code>, và <code>CustomExceptionHandler</code> trả về status, code, message đúng như khai báo trong enum. Cả ba thứ nằm trên một dòng enum.</p>
+    <p>(Bấm next.) Hai, input sai. Request bị chặn ở <code>@Valid</code>, trước khi controller chạy. <code>CustomErrorResponseProcessor</code> gom các lỗi validation thành một message, status 400. Manager không bao giờ chạy.</p>
+    <p>(Bấm next.) Ba, bất ngờ: một <code>NullPointerException</code>, một lỗi SQL. Handler rơi vào nhánh còn lại: status 500, message chung chung, chi tiết được log ở level error chứ không trả ra ngoài. Nếu thấy 500 trong log thì đó là bug cần sửa, không phải một "lỗi nghiệp vụ".</p>
+    <p>Một cái bẫy có thật trong Olympus: status không phải lúc nào cũng như các bạn đoán. Ví dụ <code>DEPARTMENT_NOT_FOUND</code> được khai báo với status 400 chứ không phải 404. Khi viết test hay xử lý lỗi ở web, hãy mở <code>SystemError</code> ra đọc chứ đừng đoán.</p>
+  </aside>
+</section>
+
+<!-- 2.6 threads: six hops -->
+<section class="l-figure is-stacked" data-section="Part 2 · Anatomy of an endpoint" data-footer="off">
+  <header class="s-head">
+    <p class="eyebrow">threads and blocking</p>
+    <h2>Six hops. Each one has a limit; past it, requests wait.</h2>
+  </header>
+  <div class="s-body">
+    <div class="fig-row">
+      <figure class="fig">
+        <svg class="dg dg-anim" viewBox="0 0 1116 236" data-loop="6.5" role="img" aria-label="A request passes six hops: socket, event loop, IO pool, your code, connection pool, Postgres. When the IO pool or the connection pool is full, requests wait.">
+          <path class="ln" d="M88 134V182M276 134V182M464 134V182M652 134V182M840 134V182M1028 134V182"/>
+          <path class="wire wire-soft" d="M88 190H1028"/>
+          <path id="hp-1" class="rail" d="M88 190H464"/>
+          <path id="hp-2" class="rail" d="M464 190H840"/>
+          <path id="hp-3" class="rail" d="M840 190H1028"/>
+
+          <circle class="pkt" r="7" data-along="#hp-1" data-at="0.2" data-dur="1.2"/>
+          <circle class="pkt" r="7" data-along="#hp-2" data-at="1.5" data-dur="1.2"/>
+          <circle class="pkt" r="7" data-along="#hp-3" data-at="2.8" data-dur="0.6"/>
+          <circle class="pkt" r="7" data-along="#hp-1" data-at="0.6" data-dur="1.2"/>
+          <circle class="pkt pkt-wait" r="7" cx="464" cy="190" data-show="1.8 2.4"/>
+          <circle class="pkt" r="7" data-along="#hp-2" data-at="2.4" data-dur="1.2"/>
+          <circle class="pkt" r="7" data-along="#hp-3" data-at="3.7" data-dur="0.6"/>
+          <circle class="pkt" r="7" data-along="#hp-1" data-at="1.0" data-dur="1.2"/>
+          <circle class="pkt pkt-wait" r="7" cx="444" cy="190" data-show="2.2 3.3"/>
+          <circle class="pkt" r="7" data-along="#hp-2" data-at="3.3" data-dur="1.2"/>
+          <circle class="pkt pkt-wait" r="7" cx="840" cy="190" data-show="4.5 5.2"/>
+          <circle class="pkt" r="7" data-along="#hp-3" data-at="5.2" data-dur="0.6"/>
+          <g class="tag tag-wait" data-show="1.8 3.3">
+            <rect x="430" y="206" width="68" height="24" rx="12"/>
+            <text x="464" y="223">wait</text>
+          </g>
+          <g class="tag tag-wait" data-show="4.5 5.2">
+            <rect x="806" y="206" width="68" height="24" rx="12"/>
+            <text x="840" y="223">wait</text>
+          </g>
+
+          <rect class="box" x="0" y="6" width="176" height="128" rx="12"/>
+          <text x="18" y="36" class="t-mono t-accent">01</text>
+          <text x="18" y="66" class="t-strong t-hop">Socket</text>
+          <text x="18" y="94" class="t-hop t-muted">Load balancer,</text>
+          <text x="18" y="118" class="t-hop t-muted">TLS</text>
+          <rect class="box" x="188" y="6" width="176" height="128" rx="12"/>
+          <text x="206" y="36" class="t-mono t-accent">02</text>
+          <text x="206" y="66" class="t-strong t-hop">Event loop</text>
+          <text x="206" y="94" class="t-hop t-muted">A few Netty</text>
+          <text x="206" y="118" class="t-hop t-muted">threads</text>
+          <rect class="box box-wait" x="376" y="6" width="176" height="128" rx="12"/>
+          <text x="394" y="36" class="t-mono t-accent">03</text>
+          <text x="394" y="66" class="t-strong t-hop">IO pool</text>
+          <text x="394" y="94" class="t-hop t-muted">32 threads.</text>
+          <text x="394" y="118" class="t-hop t-muted">Full: wait.</text>
+          <rect class="box box-app" x="564" y="6" width="176" height="128" rx="12"/>
+          <text x="582" y="36" class="t-mono t-accent">04</text>
+          <text x="582" y="66" class="t-strong t-hop">Your code</text>
+          <text x="582" y="94" class="t-hop t-muted">Controller,</text>
+          <text x="582" y="118" class="t-hop t-muted">manager, repo</text>
+          <rect class="box box-wait" x="752" y="6" width="176" height="128" rx="12"/>
+          <text x="770" y="36" class="t-mono t-accent">05</text>
+          <text x="770" y="66" class="t-strong t-hop">Hikari pool</text>
+          <text x="770" y="94" class="t-hop t-muted">10 connections.</text>
+          <text x="770" y="118" class="t-hop t-muted">Full: wait.</text>
+          <rect class="box box-db" x="940" y="6" width="176" height="128" rx="12"/>
+          <text x="958" y="36" class="t-mono t-accent">06</text>
+          <text x="958" y="66" class="t-strong t-hop">Postgres</text>
+          <text x="958" y="94" class="t-hop t-muted">One process</text>
+          <text x="958" y="118" class="t-hop t-muted">per connection</text>
+        </svg>
+      </figure>
+      <div class="cols">
+        <div class="callout is-warn">
+          <svg class="icon"><use href="#i-alert"/></svg>
+          <span>Block the event loop (02) and every request on the pod slows down. That's why every controller carries <code>@ExecuteOn(TaskExecutors.IO)</code>.</span>
+        </div>
+        <div class="callout is-warn">
+          <svg class="icon"><use href="#i-alert"/></svg>
+          <span>Hold a connection (05) while calling an outside API and the pool drains. That's why no outside call runs inside a transaction.</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <aside class="notes">
+    <h4>Dàn ý</h4>
+    <ul>
+      <li>⏱ 3 phút</li>
+      <li>Sáu chặng, mỗi chặng có giới hạn; quá giới hạn thì request phải chờ (chấm cam)</li>
+      <li>02 Event loop: vài thread Netty phục vụ mọi connection, tuyệt đối không block</li>
+      <li>03 IO pool: Olympus cố định 32 thread (<code>executors.io.type: fixed</code>). Mặc định Micronaut không giới hạn; Olympus cố định vì 128 thread tranh 20 connection thì 108 thread đứng chờ</li>
+      <li>04 Code của mình chạy trên thread IO; JDBC là blocking nên mọi controller có <code>@ExecuteOn</code></li>
+      <li>05 Hikari: 10 connection cho primary (+10 replica)</li>
+      <li>Hai callout = hai lỗi kinh điển</li>
+    </ul>
+    <h4>Full note</h4>
+    <p>Giờ nhìn cùng một request nhưng ở mức thread. Nó đi qua sáu chặng, và mỗi chặng có giới hạn. Quá giới hạn thì request phải xếp hàng chờ, chính là các chấm màu cam trong animation.</p>
+    <p>Một, socket: load balancer và TLS. Hai, event loop: một vài thread Netty phục vụ toàn bộ connection của pod. Thread này không bao giờ được phép block.</p>
+    <p>Ba, IO pool. Annotation <code>@ExecuteOn(TaskExecutors.IO)</code> chuyển handler từ event loop sang pool này. Trong Olympus pool được cố định 32 thread, khai báo trong <code>application.yml</code>. Comment trong file đó giải thích lý do: Micronaut mặc định không giới hạn pool, từng có lúc 128 thread cùng tranh 20 database connection, và 108 thread chỉ đứng chờ. Mình chỉ cần nhớ: pool đầy thì request mới phải chờ.</p>
+    <p>Bốn, code của mình: controller, manager, repository, tất cả chạy trên thread IO đó. Vì JDBC là blocking, nên cả 23 controller của Olympus đều có <code>@ExecuteOn</code>, kể cả những handler không phải <code>suspend</code>.</p>
+    <p>Năm, Hikari: pool database connection, 10 connection cho primary và 10 cho replica. Hết connection thì phải chờ, chờ lâu quá thì timeout. Sáu, Postgres: mỗi connection là một process phía server.</p>
+    <p>Hai callout bên dưới là hai lỗi kinh điển. Block event loop thì cả pod chậm theo. Giữ connection trong lúc gọi API bên ngoài thì 10 connection cạn rất nhanh, và mọi request khác phải đứng chờ ở chặng 05.</p>
+  </aside>
+</section>
+
+<!-- 2.7 blocking: what to do instead -->
+<section class="l-code is-dense" data-section="Part 2 · Anatomy of an endpoint">
+  <header class="s-head">
+    <p class="eyebrow">threads and blocking</p>
+    <h2>Hold a connection only for SQL. Anything slow goes outside.</h2>
+  </header>
+  <div class="s-body">
+    <div class="cols is-top">
+      <div class="col">
+        <p class="col-title is-bad"><svg class="icon"><use href="#i-x"/></svg>Vendor call inside the transaction</p>
+<pre><code class="kotlin" data-trim>
+return transaction(db.primary) {
+  val done = orderRepository.cancel(id = order.id)
+  // HTTP call, up to 3 s, connection held
+  carrierService.cancelPickup(order.id)
+  done.toOrderResponse().right()
+}
+</code></pre>
+      </div>
+      <div class="col">
+        <p class="col-title is-good"><svg class="icon"><use href="#i-check"/></svg>Commit first, hand the call to a job</p>
+<pre><code class="kotlin" data-trim>
+val done = transaction(db.primary) {
+  orderRepository.cancel(id = order.id).also {
+    jobRepository.insert(CancelPickupJob(order.id))
+  }
+}
+// a worker calls the carrier later
+return done.toOrderResponse().right()
+</code></pre>
+      </div>
+    </div>
+    <ul class="points is-sub">
+      <li>No <code>runBlocking</code>, no <code>Thread.sleep</code> in a request</li>
+      <li>Fire-and-forget? Hand it to a job, never <code>GlobalScope</code></li>
+      <li>Every outside call has a timeout, and it comes from config</li>
+    </ul>
+  </div>
+  <aside class="notes">
+    <h4>Dàn ý</h4>
+    <ul>
+      <li>⏱ 2 phút</li>
+      <li>Trái: gọi vendor trong transaction → giữ connection 3 giây</li>
+      <li>Phải: commit nhanh, ghi một job; worker gọi vendor sau</li>
+      <li>Olympus làm đúng vậy: email đi qua outbox (<code>email_deliveries</code>), việc nền đi qua SQS</li>
+      <li>Ba quy tắc: không <code>runBlocking</code>/<code>sleep</code>, không <code>GlobalScope</code>, timeout lấy từ config</li>
+    </ul>
+    <h4>Full note</h4>
+    <p>Từ slide sáu chặng rút ra một quy tắc: chỉ giữ connection cho SQL, những thứ chậm thì đưa ra ngoài.</p>
+    <p>Bên trái là lỗi hay gặp. Huỷ order xong thì gọi luôn API của hãng vận chuyển, nhưng lại gọi bên trong transaction. Cuộc gọi đó có thể mất tới 3 giây, và suốt 3 giây đó connection bị giữ. Mười request như vậy cùng lúc là pool cạn.</p>
+    <p>Bên phải là cách đúng. Transaction chỉ làm hai việc nhanh: đổi trạng thái order và ghi một job vào bảng, rồi commit. Một worker chạy nền sẽ đọc job và gọi hãng vận chuyển sau, ngoài mọi transaction, có retry. Olympus làm đúng kiểu này: mọi email ứng viên là một dòng trong bảng <code>email_deliveries</code> rồi scheduler gửi đi, còn các việc như trích xuất CV thì đi qua hàng đợi SQS.</p>
+    <p>Ba quy tắc ở dưới. Không <code>runBlocking</code>, không <code>Thread.sleep</code> trong request. Việc kiểu "bắn rồi quên" thì giao cho job, không dùng <code>GlobalScope</code>, vì lỗi ở đó sẽ biến mất không dấu vết. Và mọi lời gọi ra ngoài đều phải có timeout, giá trị lấy từ config.</p>
+  </aside>
+</section>
+
+<!-- 2.8 HTTP tests: the cases -->
+<section class="l-table" data-section="Part 2 · Anatomy of an endpoint">
+  <header class="s-head">
+    <p class="eyebrow">HTTP tests</p>
+    <h2>Every endpoint gets these tests, against a real database.</h2>
+  </header>
+  <div class="s-body">
+    <table class="tbl is-compact">
+      <thead>
+        <tr><th>Case</th><th>Call it with</th><th>Expect</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Happy path</td><td>A valid token and body</td><td>200, and the row really changed</td></tr>
+        <tr><td>No token</td><td>No <code>Authorization</code> header</td><td>401</td></tr>
+        <tr><td>Not yours</td><td>A token from another organization</td><td><code>USER_PERMISSION_INSUFFICIENT</code></td></tr>
+        <tr><td>Bad input</td><td>A blank <code>reason</code></td><td>400</td></tr>
+        <tr><td>Not found</td><td>A random id</td><td><code>ORDER_NOT_FOUND</code></td></tr>
+        <tr><td>Business rule</td><td>An order that is already shipped</td><td><code>ORDER_NOT_OPEN</code></td></tr>
+      </tbody>
+    </table>
+    <p class="caption"><b>From CONTROLLERS.md:</b> extend <code>AbstractControllerTest</code>, call through the Retrofit client with a real JWT, no mocked managers or repositories.</p>
+  </div>
+  <aside class="notes">
+    <h4>Dàn ý</h4>
+    <ul>
+      <li>⏱ 2 phút</li>
+      <li>Rule <code>CONTROLLERS.md</code>: mỗi endpoint cần happy path, 401, 403/404 (không phải của mình), 400, 404</li>
+      <li>Thêm một case cho mỗi business rule</li>
+      <li>Happy path phải kiểm tra cả database, không chỉ response</li>
+      <li>Thực tế: chỉ 11/27 class test trong Olympus có test 401; <code>DepartmentControllerTest</code> thiếu 401 và not found → quay lại ở live demo</li>
+    </ul>
+    <h4>Full note</h4>
+    <p>Mỗi endpoint mới cần một bộ test cố định. Rule nằm trong <code>CONTROLLERS.md</code> của repo, và review sẽ hỏi.</p>
+    <p>Happy path: token hợp lệ, body hợp lệ, mong đợi 200, và quan trọng là kiểm tra cả database xem dòng dữ liệu thật sự đã đổi, không chỉ nhìn response.</p>
+    <p>Không có token: mong đợi 401. Token của tổ chức khác: phải bị từ chối với <code>USER_PERMISSION_INSUFFICIENT</code>, đây chính là phép kiểm tra org nằm trong manager mà mình đã nhắc. Input sai: 400. Id không tồn tại: mã not found. Và mỗi business rule thêm một case, ở đây là order đã giao thì không huỷ được.</p>
+    <p>Test kế thừa <code>AbstractControllerTest</code>, gọi qua Retrofit client với JWT thật lấy từ đăng nhập thật, và không mock manager hay repository.</p>
+    <p>Thực tế trong Olympus chưa phải chỗ nào cũng đủ: chỉ 11 trên 27 class test có test 401, và <code>DepartmentControllerTest</code> chưa có case 401 lẫn not found. Lúc live demo mình sẽ chỉ ra. Code mới thì theo rule.</p>
+  </aside>
+</section>
+
+<!-- 2.9 HTTP tests: the code -->
+<section class="l-code is-dense" data-section="Part 2 · Anatomy of an endpoint" data-footer="off">
+  <header class="s-head">
+    <p class="eyebrow">HTTP tests</p>
+    <h2>Sign in, call the client, check the error code and the database.</h2>
+  </header>
+  <div class="s-body">
+<pre><code class="kotlin" data-trim>
+@Test
+fun `cancel order - another organization is refused`(): Unit = runBlocking {
+  val org = organizationFaker.randomOrganization()
+  val admin = userFaker.createUserWithRoles(listOf(UserRole.ADMIN), org.id)
+  val order = orderFaker.create(organizationId = organizationFaker.randomOrganization().id)
+
+  val error = orderClient.cancel(
+    token = signIn(admin.email, org.subdomain).bearerToken(),
+    request = CancelOrderRequest(id = order.id, reason = "test")
+  ).leftOrNull()
+
+  assertThat(error?.code).isEqualTo(SystemError.USER_PERMISSION_INSUFFICIENT.code)
+  assertThat(orderRepository.findFirst(id = order.id)?.status).isEqualTo(OrderStatus.OPEN)
+}
+</code></pre>
+    <div class="cards c3">
+      <div class="card"><p><b>Real stack:</b> Postgres, Redis, LocalStack from <code>make infra-up</code>.</p></div>
+      <div class="card"><p><b>Own data:</b> fakers build it; clean up in <code>@BeforeAll</code> / <code>@AfterAll</code>.</p></div>
+      <div class="card"><p><b>Before you push:</b> <code>./gradlew test</code>. CI runs the same.</p></div>
+    </div>
+  </div>
+  <aside class="notes">
+    <h4>Dàn ý</h4>
+    <ul>
+      <li>⏱ 1,5 phút</li>
+      <li>Đọc test theo 3 đoạn: dựng dữ liệu → gọi client → assert</li>
+      <li>Dữ liệu dựng bằng faker; order thuộc một org khác</li>
+      <li>Gọi qua <code>orderClient</code> với token thật từ <code>signIn</code></li>
+      <li>Assert cả mã lỗi lẫn database (order vẫn <code>OPEN</code>)</li>
+      <li>Chạy local cần <code>make infra-up</code>; database test là <code>db_test</code>, không đụng <code>db_local</code></li>
+    </ul>
+    <h4>Full note</h4>
+    <p>Đây là một test "không phải của mình" hoàn chỉnh. Đọc theo ba đoạn.</p>
+    <p>Đoạn một, dựng dữ liệu bằng faker: một tổ chức, một admin của tổ chức đó, và một order thuộc về một tổ chức khác.</p>
+    <p>Đoạn hai, gọi API qua <code>orderClient</code>, với token lấy từ đăng nhập thật bằng <code>signIn</code>. Kết quả là <code>Either</code>, nên mình lấy bên trái là lỗi.</p>
+    <p>Đoạn ba, assert hai thứ: mã lỗi đúng là <code>USER_PERMISSION_INSUFFICIENT</code>, và đọc lại database thấy order vẫn ở trạng thái <code>OPEN</code>. Chỉ assert response là chưa đủ.</p>
+    <p>Ba ghi chú bên dưới. Test chạy trên stack thật, cần <code>make infra-up</code> trước; database test tên là <code>db_test</code> nên không đụng dữ liệu local của các bạn. Mỗi class test tự dựng dữ liệu và tự dọn trong <code>@BeforeAll</code> và <code>@AfterAll</code>. Chạy <code>./gradlew test</code> trước khi push, CI cũng chạy đúng bộ đó, chạy trước thì đỡ một vòng chờ CI.</p>
+  </aside>
+</section>
+
+<!-- ======================================================================
+     LIVE DEMO
+     ====================================================================== -->
+
+<!-- 3.1 live in the repo -->
+<section class="l-table" data-section="Live in the repo · Department">
+  <header class="s-head">
+    <p class="eyebrow">live in the repo · 20 min</p>
+    <h2>One feature, end to end. Close the slides, open IntelliJ.</h2>
+  </header>
+  <div class="s-body">
+    <table class="tbl is-compact">
+      <thead>
+        <tr><th>#</th><th>Open</th><th>Point out</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="num">1</td><td>DepartmentController.kt</td><td><code>@ExecuteOn</code>, <code>@Secured</code> roles, <code>@CheckOrganizationMatch</code>, <code>getOrThrow()</code></td></tr>
+        <tr><td class="num">2</td><td>UpdateDepartmentRequest.kt</td><td><code>@field:Pattern</code>; a null name keeps the current one</td></tr>
+        <tr><td class="num">3</td><td>DepartmentManager.kt</td><td>Early <code>.left()</code>, the org check, <code>transaction(db.primary)</code> in delete</td></tr>
+        <tr><td class="num">4</td><td>DepartmentRepository.kt</td><td><code>deletedAt.isNull()</code> on every read, soft delete, <code>findMany</code></td></tr>
+        <tr><td class="num">5</td><td>sql/005-departments.sql</td><td>Standard columns, no FK, partial unique index, <code>updated_at</code> trigger</td></tr>
+        <tr><td class="num">6</td><td>DepartmentControllerTest.kt</td><td>20 cases. Which ones from Part 2 are missing?</td></tr>
+        <tr><td class="num">7</td><td>useUpdateDepartment.ts</td><td>The generated hook, then <code>modules/departments/</code> that calls it</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <aside class="notes">
+    <h4>Dàn ý</h4>
+    <ul>
+      <li>⏱ 20 phút, tắt slide, mở IntelliJ, tăng cỡ chữ</li>
+      <li>Nhảy file bằng Cmd+Click / Find Usages, không mở bằng cây thư mục</li>
+      <li>1 <code>app/api-platform/…/controller/DepartmentController.kt</code>: <code>/api/department</code> là controller cũ chưa có v1</li>
+      <li>2 <code>app/module-client/…/request/UpdateDepartmentRequest.kt</code></li>
+      <li>3 <code>app/api-platform/…/manager/DepartmentManager.kt</code>: <code>update</code> và <code>delete</code> so <code>requesterOrganizationId</code></li>
+      <li>4 <code>app/module-postgresql/…/repository/DepartmentRepository.kt</code>: delete = set <code>deleted_at</code></li>
+      <li>5 <code>app/module-postgresql/sql/005-departments.sql</code>: unique <code>(organization_id, name) WHERE deleted_at IS NULL</code></li>
+      <li>6 <code>app/api-platform/src/test/kotlin/test/controller/DepartmentControllerTest.kt</code>: thiếu 401, not found</li>
+      <li>7 <code>apps/web/src/__generated__/hooks/useUpdateDepartment.ts</code> → <code>apps/web/src/modules/departments/</code></li>
+      <li>Nếu còn giờ: mở PR đã thêm Edit/Delete cho Department (web-olympus #33) xem review hỏi gì</li>
+    </ul>
+    <h4>Full note</h4>
+    <p>Giờ tắt slide, mở IntelliJ. Mình đi hết feature Department trong Olympus, bảy điểm dừng. Mẹo: nhảy giữa các file bằng Cmd+Click và Find Usages, đừng mở bằng cây thư mục, vì đó cũng chính là kỹ năng mình muốn các bạn tập.</p>
+    <p>Một, <code>DepartmentController</code>. Chỉ ra <code>@ExecuteOn</code> ở cấp class, <code>@Secured</code> với role cụ thể trên từng method, <code>@CheckOrganizationMatch</code> chặn sớm khi <code>organizationId</code> trong body không khớp với token, và <code>getOrThrow()</code> ở cuối mỗi handler. Lưu ý path <code>/api/department</code> là controller cũ, chưa có v1.</p>
+    <p>Hai, <code>UpdateDepartmentRequest</code>: <code>name</code> nullable, không gửi thì giữ tên cũ, nên không dùng được <code>@NotBlank</code> mà dùng <code>@field:Pattern</code>. Comment trong file giải thích đúng điều này.</p>
+    <p>Ba, <code>DepartmentManager</code>: các <code>.left()</code> trả sớm, đoạn so <code>requesterOrganizationId</code> với organization của department, và <code>delete</code> dùng một <code>transaction(db.primary)</code> vì vừa xoá department vừa gỡ department khỏi user, hai bảng.</p>
+    <p>Bốn, <code>DepartmentRepository</code>: mọi câu đọc có <code>deletedAt.isNull()</code>, và delete thực chất là set <code>deleted_at</code>.</p>
+    <p>Năm, migration <code>005-departments.sql</code>: các cột chuẩn, không có foreign key, index lọc theo <code>deleted_at IS NULL</code>, unique index trên tên trong cùng tổ chức nhưng chỉ tính các dòng chưa xoá, và trigger tự cập nhật <code>updated_at</code>.</p>
+    <p>Sáu, <code>DepartmentControllerTest</code>: 20 case. Hỏi các bạn: so với bảng test ở Part 2 thì thiếu case nào? Đáp án: chưa có 401 và chưa có not found.</p>
+    <p>Bảy, sang web: hook sinh tự động <code>useUpdateDepartment.ts</code>, rồi tìm nơi gọi nó trong <code>modules/departments/</code>.</p>
+  </aside>
+</section>
+
+<!-- ======================================================================
+     Q&A
+     ====================================================================== -->
+
+<!-- 4.1 q&a -->
+<section class="l-closing">
+  <header class="s-head">
+    <p class="eyebrow">q&amp;a · 15 min</p>
+  </header>
+  <div class="s-body">
+    <p class="statement">Three layers. One API style. Errors as values. Every endpoint tested.</p>
+    <p class="lead">The rules, for people and for AI: <code>apps/service/.claude/rules/</code>. Every intern asks at least one question now.</p>
+  </div>
+  <p class="prompt">$ ask anyone, anything - don't hide and guess</p>
+  <aside class="notes">
+    <h4>Dàn ý</h4>
+    <ul>
+      <li>⏱ 15 phút</li>
+      <li>Tóm lại 4 ý: ba layer, một kiểu API, lỗi là giá trị, endpoint nào cũng có test</li>
+      <li>Mọi rule nằm trong <code>apps/service/.claude/rules/</code>; đọc trước khi code và trước khi nhờ AI</li>
+      <li>Mỗi bạn hỏi ít nhất một câu</li>
+      <li>Bị hỏi về database hay auth: mở slide Backup</li>
+    </ul>
+    <h4>Full note</h4>
+    <p>Nếu chỉ nhớ bốn ý: request đi qua ba layer, không bỏ layer nào. API chỉ có một kiểu. Lỗi dự đoán được là giá trị, không phải exception. Và endpoint nào cũng có bộ HTTP test chạy với database thật.</p>
+    <p>Mọi quy tắc hôm nay đều có trong <code>apps/service/.claude/rules/</code> của repo Olympus. Đây là rule cho cả người lẫn AI: đọc trước khi viết code, và trước khi nhờ AI viết code.</p>
+    <p>Giờ là phần hỏi đáp. Mỗi bạn hỏi ít nhất một câu nhé. Câu nào chưa trả lời được ngay thì mình ghi lại và trả lời trong channel.</p>
+    <p>Ghi chú cho người trình bày: nếu có câu hỏi về database hay auth, hai slide Backup ở cuối deck trả lời sẵn.</p>
+  </aside>
+</section>
+
+<!-- ======================================================================
+     BACKUP (open only when asked)
+     ====================================================================== -->
+
+<!-- B.0 backup divider -->
+<section class="l-part" data-section="Backup">
+  <div class="s-body">
+    <p class="part-num">backup</p>
+    <h1>Only if someone asks</h1>
+    <p class="lead">The database shape, and the two edges of the service. Both have their own session later.</p>
+  </div>
+  <aside class="notes">
+    <h4>Dàn ý</h4>
+    <ul>
+      <li>Không trình bày trong luồng chính</li>
+      <li>Mở khi có câu hỏi về database hoặc auth / gọi API ngoài</li>
+    </ul>
+    <h4>Full note</h4>
+    <p>Phần backup chỉ mở khi có người hỏi. Database có session thứ hai, auth có session thứ tư, nên hôm nay chỉ trả lời ngắn.</p>
+  </aside>
+</section>
+
+<!-- B.1 database shape -->
+<section class="l-code is-dense" data-section="Backup" data-footer="off">
+  <header class="s-head">
+    <p class="eyebrow">the database shape</p>
+    <h2>Every table looks the same. Business rules stay in the app.</h2>
+  </header>
+  <div class="s-body">
+    <div class="cols is-top">
+      <div class="col">
+<pre><code class="sql" data-trim>
+-- sql/042-orders.sql
+CREATE TABLE IF NOT EXISTS orders (
+  id              uuid PRIMARY KEY
+                  DEFAULT uuid_generate_v4(),
+  organization_id uuid NOT NULL,
+  status          text NOT NULL,
+  created_at      timestamptz NOT NULL DEFAULT NOW(),
+  updated_at      timestamptz,
+  deleted_at      timestamptz
+);
+CREATE INDEX index_orders_by_organization_id
+  ON orders (organization_id)
+  WHERE deleted_at IS NULL;
+CREATE TRIGGER trigger_orders_updated_at
+  BEFORE UPDATE ON orders FOR EACH ROW
+  EXECUTE PROCEDURE update_updated_at();
+</code></pre>
+      </div>
+      <div class="col">
+        <div class="card"><h3>UUID, text, timestamptz, soft delete</h3><p>Same shape in every table, so every repository reads the same way.</p></div>
+        <div class="card"><h3>Rules live in the manager</h3><p>No foreign keys, no CASCADE, no Postgres enums. The database keeps keys, NOT NULL, uniqueness, and the <code>updated_at</code> trigger.</p></div>
+        <div class="card"><h3>A shipped migration is never edited</h3><p>Flyway, numbered files. Wrong? Add a new one.</p></div>
+      </div>
+    </div>
+  </div>
+  <aside class="notes">
+    <h4>Dàn ý</h4>
+    <ul>
+      <li>Rule: <code>.claude/rules/database/SCHEMA.md</code></li>
+      <li>Tên file migration Olympus: <code>NNN-name.sql</code> (vd <code>005-departments.sql</code>), Flyway với prefix rỗng, separator <code>-</code></li>
+      <li>uuid <code>uuid_generate_v4()</code>, text, timestamptz, <code>deleted_at</code></li>
+      <li>Không FK, không CASCADE, không enum Postgres; có trigger <code>updated_at</code></li>
+      <li>Unique index phải kèm <code>WHERE deleted_at IS NULL</code></li>
+      <li>Migration đã merge thì không sửa; <code>outOfOrder</code> đang bật, trùng số vẫn fail</li>
+    </ul>
+    <h4>Full note</h4>
+    <p>Mọi bảng trong Olympus có cùng một hình dạng: khoá chính uuid sinh bằng <code>uuid_generate_v4()</code>, chuỗi dùng <code>text</code> chứ không dùng varchar, thời gian dùng timestamptz, và ba cột chuẩn <code>created_at</code>, <code>updated_at</code>, <code>deleted_at</code>. Vì bảng nào cũng giống nhau nên repository nào đọc cũng giống nhau.</p>
+    <p>Quan hệ và business rule nằm ở app. Không có foreign key, không CASCADE, không enum của Postgres. Database chỉ giữ những gì nó làm tốt: khoá, NOT NULL, unique, và một trigger tự cập nhật <code>updated_at</code> mà bảng nào cũng có.</p>
+    <p>Một chi tiết hay bị quên: unique index phải kèm <code>WHERE deleted_at IS NULL</code>. Nếu không, một department đã xoá mềm vẫn giữ cái tên đó mãi mãi và không ai tạo lại được. Xem <code>005-departments.sql</code>.</p>
+    <p>Migration chạy bằng Flyway, file đặt tên theo số thứ tự rồi gạch ngang, ví dụ <code>005-departments.sql</code>. File đã merge thì không bao giờ sửa; sai thì thêm file mới. Olympus bật <code>outOfOrder</code>, nên file số nhỏ merge sau vẫn chạy, nhưng hai file trùng số thì vẫn lỗi.</p>
+  </aside>
+</section>
+
+<!-- B.2 the edges of the service -->
+<section class="l-cards" data-section="Backup">
+  <header class="s-head">
+    <p class="eyebrow">the edges of the service</p>
+    <h2>Auth comes in through filters. The outside world sits behind Retrofit.</h2>
+  </header>
+  <div class="s-body">
+    <div class="cards c3">
+      <div class="card">
+        <span class="card-kicker">coming in</span>
+        <h3>JWT, then roles</h3>
+        <p>Keycloak sign-in, then our own JWT carrying the organization. <code>@Secured</code> roles on each endpoint. The organization comes from the token, never from the URL.</p>
+      </div>
+      <div class="card">
+        <span class="card-kicker">going out</span>
+        <h3>Retrofit, in a Service</h3>
+        <p>Outside HTTP APIs through Retrofit, built in a factory with a timeout from config. A manager calls the service, never inside a transaction.</p>
+      </div>
+      <div class="card">
+        <span class="card-kicker">writing twice</span>
+        <h3>One transaction</h3>
+        <p>More than one table: one <code>transaction(db.primary)</code> around all of it, in the manager. Two writes, one commit.</p>
+      </div>
+    </div>
+  </div>
+  <aside class="notes">
+    <h4>Dàn ý</h4>
+    <ul>
+      <li>Vào: đăng nhập Keycloak (Google) → API phát JWT riêng có <code>organization_id</code></li>
+      <li><code>@Secured(SecurityRole.…)</code> trên method; controller đọc org bằng <code>authentication.getCustomClaims()</code></li>
+      <li>Ra: Retrofit client tạo trong factory, timeout từ config, nằm trong *Service</li>
+      <li>Ghi nhiều bảng: một <code>transaction(db.primary)</code> trong manager</li>
+      <li>Chi tiết auth: session 4</li>
+    </ul>
+    <h4>Full note</h4>
+    <p>Chiều vào: người dùng đăng nhập qua Keycloak bằng tài khoản Google, sau đó API kiểm tra và phát JWT của riêng Olympus, trong đó có <code>organization_id</code>. Mỗi endpoint khai báo role bằng <code>@Secured</code>. Controller lấy organization từ claims của token qua <code>authentication.getCustomClaims()</code>, không bao giờ lấy từ URL. Web dùng subdomain chỉ để định tuyến giao diện.</p>
+    <p>Chiều ra: gọi API bên ngoài bằng Retrofit interface, được tạo trong một factory với timeout lấy từ config. Client đó nằm trong một class Service. Manager gọi service, và không bao giờ gọi bên trong transaction.</p>
+    <p>Ghi vào nhiều hơn một bảng thì bọc tất cả trong một <code>transaction(db.primary)</code> ở manager. Hai lần ghi, một lần commit.</p>
+    <p>Phần auth chi tiết có session riêng, session thứ tư.</p>
+  </aside>
+</section>
+
+</div><!-- /.slides -->
+</div><!-- /.reveal -->
+
+<script src="vendor/reveal.js/reveal.js"></script>
+<script src="vendor/reveal.js/plugin/notes.js"></script>
+<script src="vendor/reveal.js/plugin/highlight.js"></script>
+<script>Deck.init();</script>
+</body>
+</html>
