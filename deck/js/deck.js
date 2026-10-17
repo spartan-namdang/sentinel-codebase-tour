@@ -53,8 +53,8 @@
           <g data-scene="name" data-loop="5">                            drawn while that scene is active:
             the first one by default, then the last visible .fragment[data-scene] on the slide
           Times are seconds within the loop; the loop restarts on every slide or scene change.
-          Controls: hovering a diagram shows a replay button (top right) that restarts the loop;
-          clicking the diagram pauses and resumes it, and a pause icon stays visible while paused.
+          Controls: clicking the diagram pauses and resumes it. While paused, two buttons show
+          in the top-right corner: replay (restart the loop from 0) and the pause icon (resume).
           The buttons sit just above the drawing when there is room (or data-tools="above"), else inside it. ---- */
   var dg = { slide: null, scene: null, items: [], t0: 0, raf: 0, paused: false, pausedAt: 0 };
 
@@ -128,7 +128,7 @@
     dg.raf = requestAnimationFrame(dgTick);
   }
 
-  /* ---- Diagram controls: replay on hover, click to pause / resume ---- */
+  /* ---- Diagram controls: click to pause / resume; replay and resume buttons while paused ---- */
   function dgSetPaused(paused) {
     dg.paused = paused;
     document.querySelectorAll('.dg-host').forEach(function (host) {
@@ -174,7 +174,6 @@
     // just above the drawing when there is room, otherwise inside its top-right corner
     var above = top >= 46 || svg.getAttribute('data-tools') === 'above';
     tools.style.top = Math.round(above ? top - 44 : top + 6) + 'px';
-    tools.classList.toggle('is-above', above);
     tools.style.right = Math.round(host.offsetWidth - (left + drawW) + 6) + 'px';
   }
   function buildDiagramControls() {

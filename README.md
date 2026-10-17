@@ -32,7 +32,7 @@ Then open <http://localhost:8011>.
 | `F` | Full screen |
 | `O` | Overview of all slides |
 
-Animated diagrams: hover one to show the replay button (top right) that restarts it from the beginning; click the diagram to pause or resume it. A pause icon stays in the corner while it is paused.
+Animated diagrams: click one to pause it. While it is paused, two icons show in its top-right corner: replay restarts it from the beginning, the pause icon (or another click on the diagram) resumes it.
 
 ## Structure (75 minutes)
 
