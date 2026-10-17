@@ -174,6 +174,7 @@
     // just above the drawing when there is room, otherwise inside its top-right corner
     var above = top >= 46 || svg.getAttribute('data-tools') === 'above';
     tools.style.top = Math.round(above ? top - 44 : top + 6) + 'px';
+    tools.classList.toggle('is-above', above);
     tools.style.right = Math.round(host.offsetWidth - (left + drawW) + 6) + 'px';
   }
   function buildDiagramControls() {
@@ -185,12 +186,16 @@
       tools.innerHTML =
         '<button type="button" class="dg-btn dg-replay" title="Replay animation" aria-label="Replay animation">' +
           '<svg class="icon"><use href="#i-replay"/></svg></button>' +
-        '<span class="dg-btn dg-paused" title="Paused: click the diagram to resume" role="status" aria-label="Animation paused">' +
+        '<span class="dg-btn dg-paused" title="Paused: click to resume" role="status" aria-label="Animation paused">' +
           '<svg class="icon"><use href="#i-pause"/></svg></span>';
       host.appendChild(tools);
       tools.querySelector('.dg-replay').addEventListener('click', function (e) {
         e.stopPropagation();
         if (dg.slide && dg.slide.contains(svg)) dgReplay();
+      });
+      tools.querySelector('.dg-paused').addEventListener('click', function (e) {
+        e.stopPropagation();
+        if (dg.slide && dg.slide.contains(svg)) dgTogglePause();
       });
       svg.addEventListener('click', function () {
         if (dg.slide && dg.slide.contains(svg)) dgTogglePause();

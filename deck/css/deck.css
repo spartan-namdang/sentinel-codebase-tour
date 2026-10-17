@@ -424,9 +424,13 @@ html, body, .reveal-viewport { background: var(--bg); }
 .dg-btn .icon { width: 20px; height: 20px; stroke-width: 2; }
 .dg-replay { opacity: 0; cursor: pointer; transition: opacity 0.15s, color 0.15s, border-color 0.15s; }
 .dg-host:hover .dg-replay { opacity: 1; pointer-events: auto; }
+/* buttons placed above the drawing: stretch the hover area down to the drawing so the
+   pointer never crosses a gap (where the host would lose :hover) on its way to the button */
+.dg-tools.is-above { padding-bottom: 10px; }
+.dg-host:hover .dg-tools.is-above { pointer-events: auto; }
 .dg-replay:hover { color: var(--accent); border-color: var(--accent); }
 .dg-paused { display: none; color: var(--c-wait); border-color: var(--c-wait); }
-.dg-host.is-paused .dg-paused { display: grid; }
+.dg-host.is-paused .dg-paused { display: grid; pointer-events: auto; cursor: pointer; }
 
 .dg-anim [data-along], .dg-anim [data-show] { opacity: 0; transition: opacity 0.15s; }
 .dg-anim .is-on { opacity: 1; }
