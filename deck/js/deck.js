@@ -275,6 +275,52 @@
     window.addEventListener('keydown', exKeys, true);
   }
 
+  /* ---- Code colours: highlight.js only marks Kotlin declarations. After it runs, this pass
+          tags what is left in plain text the way an IDE would: a name followed by ( or { is a
+          call, a PascalCase name is a class, ENUM_CONSTANT (or .CONSTANT) is a constant, and a
+          `backtick test name` is a function name (highlight.js reads the words in it as keywords).
+          Strings, comments, annotations and tokens highlight.js already tagged are left alone. ---- */
+  var CODE_SKIP = /\bhljs-(string|comment|meta|number|keyword|literal|title|type|built_in|subst)\b/;
+  var CODE_TOKEN = /(`[^`\n]+`)|((?<=\.)[A-Z][A-Z0-9_]+\b|\b[A-Z][A-Z0-9]*_[A-Z0-9_]+\b)|\b([A-Z][a-z][A-Za-z0-9]*)\b|\b([a-z_][A-Za-z0-9_]*)(?=[ \t]*[({])/g;
+  var CODE_CLASS = [null, 'hljs-title function_', 'tok-const', 'tok-type', 'tok-call'];
+
+  function codeTextNodes(code) {
+    var nodes = [];
+    var walker = document.createTreeWalker(code, NodeFilter.SHOW_TEXT);
+    for (var n = walker.nextNode(); n; n = walker.nextNode()) nodes.push(n);
+    return nodes;
+  }
+  function tintKotlin(code) {
+    // words inside `…` are one name: drop the keyword spans highlight.js put there
+    var inside = false;
+    codeTextNodes(code).forEach(function (n) {
+      var parent = n.parentNode;
+      if (parent !== code && /\bhljs-(string|comment)\b/.test(parent.className)) return;
+      if (inside && parent !== code && /\bhljs-(keyword|literal|built_in)\b/.test(parent.className)) {
+        parent.replaceWith(n.data);
+        return;
+      }
+      if ((n.data.split('`').length - 1) % 2) inside = !inside;
+    });
+    code.normalize();
+
+    codeTextNodes(code).forEach(function (node) {
+      if (node.parentNode !== code && CODE_SKIP.test(node.parentNode.className)) return;
+      var text = node.data, last = 0, frag = document.createDocumentFragment(), m;
+      CODE_TOKEN.lastIndex = 0;
+      while ((m = CODE_TOKEN.exec(text))) {
+        var span = document.createElement('span');
+        span.className = CODE_CLASS[m[1] ? 1 : m[2] ? 2 : m[3] ? 3 : 4];
+        span.textContent = m[0];
+        frag.append(text.slice(last, m.index), span);
+        last = m.index + m[0].length;
+      }
+      if (!last) return;
+      frag.append(text.slice(last));
+      node.replaceWith(frag);
+    });
+  }
+
   /* ---- Layout audit: run Deck.audit() in the browser console (or a test harness).
           For every slide it reports content that overflows the slide body, code blocks
           wider than their box, and anything that reaches into the footer.
@@ -366,6 +412,7 @@
       backgroundTransition: 'none',
       plugins: [RevealNotes, RevealHighlight]
     }).then(function () {
+      document.querySelectorAll('pre code.language-kotlin').forEach(tintKotlin);
       Reveal.addKeyBinding(
         { keyCode: 84, key: 'T', description: 'Toggle dark / light theme' },
         toggleTheme

@@ -71,6 +71,7 @@
   --code-annotation: #b3ae60;
   --code-function: #56a8f5;
   --code-property: #c77dbb;
+  --code-type: #4ec9b0;     /* classes and types: our addition, IntelliJ leaves them plain */
 }
 
 :root[data-theme="light"] {
@@ -102,6 +103,7 @@
   --code-annotation: #9e880d;
   --code-function: #00627a;
   --code-property: #871094;
+  --code-type: #8a5300;
 }
 
 /* 3. Reveal base ---------------------------------------------------------- */
@@ -482,7 +484,9 @@ html, body, .reveal-viewport { background: var(--bg); }
 }
 /* token → colour, the way IntelliJ paints Kotlin, YAML, JSON and SQL:
    keywords and true/false/null orange, strings green, numbers cyan, annotations olive,
-   declared function names blue, JSON / YAML keys purple, types and calls in plain text */
+   function names blue (declared and called), JSON / YAML keys and enum constants purple,
+   classes and types teal. Calls, most class names and constants come from deck.js
+   (.tok-*), since highlight.js only marks Kotlin declarations. */
 .hljs-comment, .hljs-quote { color: var(--code-comment); font-style: normal; }
 .hljs-keyword, .hljs-literal, .hljs-selector-tag, .hljs-section, .hljs-name { color: var(--code-keyword); }
 .hljs-string, .hljs-regexp, .hljs-addition { color: var(--code-string); }
@@ -490,8 +494,11 @@ html, body, .reveal-viewport { background: var(--bg); }
 .hljs-meta, .hljs-meta .hljs-keyword, .hljs-symbol { color: var(--code-annotation); }
 .hljs-title.function_, .hljs-function .hljs-title { color: var(--code-function); }
 .hljs-attr, .hljs-attribute, .hljs-property { color: var(--code-property); }
-.hljs-type, .hljs-built_in, .hljs-title, .hljs-title.class_, .hljs-params, .hljs-variable,
+.hljs-title, .hljs-params, .hljs-variable,
 .hljs-subst, .hljs-punctuation, .hljs-operator, .hljs-bullet { color: var(--code-ink); }
+.hljs-type, .hljs-built_in, .hljs-title.class_, .tok-type { color: var(--code-type); }
+.tok-call { color: var(--code-function); }
+.tok-const { color: var(--code-property); font-style: italic; }
 .hljs-deletion { color: var(--c-error); }
 .hljs-strong { font-weight: 600; }
 .hljs-emphasis { font-style: italic; }
