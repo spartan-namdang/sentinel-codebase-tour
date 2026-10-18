@@ -203,6 +203,78 @@
     });
   }
 
+  /* ---- Example sheet: a card with data-example="ex-id" opens <article class="ex" id="ex-id">
+          in the slide's .ex-modal. ← / → step through the slide's examples in card order,
+          Esc, the close button or a click outside the panel closes it, and so does leaving the slide.
+          While it is open, keys go to the sheet, not to Reveal. ---- */
+  var ex = { modal: null, ids: [], index: 0, opener: null };
+
+  function exShow(index) {
+    var n = ex.ids.length;
+    ex.index = (index + n) % n;
+    var id = ex.ids[ex.index];
+    ex.modal.querySelectorAll('.ex').forEach(function (art) {
+      art.classList.toggle('is-active', art.id === id);
+    });
+    ex.modal.querySelector('.ex-count').textContent = (ex.index + 1) + ' / ' + n;
+    var title = ex.modal.querySelector('#' + id + ' h3');
+    ex.modal.setAttribute('aria-label', title ? title.textContent : 'Example');
+  }
+  function exOpen(slide, card) {
+    if (Reveal.isOverview()) return;
+    ex.modal = slide.querySelector('.ex-modal');
+    ex.ids = Array.prototype.map.call(slide.querySelectorAll('[data-example]'), function (c) {
+      return c.getAttribute('data-example');
+    });
+    ex.opener = card;
+    exShow(ex.ids.indexOf(card.getAttribute('data-example')));
+    ex.modal.hidden = false;
+    ex.modal.querySelector('.ex-close').focus();
+  }
+  function exClose() {
+    if (!ex.modal) return;
+    ex.modal.hidden = true;
+    ex.modal = null;
+    if (ex.opener) ex.opener.focus();
+    ex.opener = null;
+  }
+  function exKeys(e) {
+    var card = e.target.closest && e.target.closest('[data-example]');
+    if (!ex.modal) {
+      if (card && (e.key === 'Enter' || e.key === ' ')) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        exOpen(card.closest('section'), card);
+      }
+      return;
+    }
+    if (e.key === 'Tab') return;                       // keep focus moving between the buttons
+    e.stopImmediatePropagation();
+    if (e.key === 'Escape') exClose();
+    else if (e.key === 'ArrowLeft') exShow(ex.index - 1);
+    else if (e.key === 'ArrowRight') exShow(ex.index + 1);
+    else if (e.key === 'Enter' || e.key === ' ') return; // let the focused button click
+    e.preventDefault();
+  }
+  function buildExamples() {
+    document.querySelectorAll('.slides > section').forEach(function (slide) {
+      var modal = slide.querySelector('.ex-modal');
+      if (!modal) return;
+      slide.querySelectorAll('[data-example]').forEach(function (card) {
+        card.setAttribute('role', 'button');
+        card.setAttribute('tabindex', '0');
+        card.setAttribute('aria-haspopup', 'dialog');
+        card.addEventListener('click', function () { exOpen(slide, card); });
+      });
+      modal.addEventListener('click', function (e) { if (e.target === modal) exClose(); });
+      modal.querySelector('.ex-close').addEventListener('click', exClose);
+      modal.querySelector('.ex-prev').addEventListener('click', function () { exShow(ex.index - 1); });
+      modal.querySelector('.ex-next').addEventListener('click', function () { exShow(ex.index + 1); });
+    });
+    // capture on window runs before Reveal's own keydown handler on document
+    window.addEventListener('keydown', exKeys, true);
+  }
+
   /* ---- Layout audit: run Deck.audit() in the browser console (or a test harness).
           For every slide it reports content that overflows the slide body, code blocks
           wider than their box, and anything that reaches into the footer.
@@ -239,6 +311,25 @@
           problems.push({ slide: i + 1, label: label, issue: '<' + el.tagName.toLowerCase() + '> sticks out ' + Math.round((r.right - right) / scale) + 'px on the right' });
         }
       });
+      // example sheets: open each one and check the same things inside the panel
+      var modal = slide.querySelector('.ex-modal');
+      if (modal) {
+        modal.hidden = false;
+        modal.querySelectorAll('.ex').forEach(function (art) {
+          modal.querySelectorAll('.ex').forEach(function (a) { a.classList.toggle('is-active', a === art); });
+          var where = 'example #' + art.id + ': ';
+          if (art.scrollHeight > art.clientHeight + 1) {
+            problems.push({ slide: i + 1, label: label, issue: where + 'overflows by ' + (art.scrollHeight - art.clientHeight) + 'px' });
+          }
+          art.querySelectorAll('pre code').forEach(function (code) {
+            if (code.scrollWidth > code.clientWidth + 1) {
+              problems.push({ slide: i + 1, label: label, issue: where + 'code too wide by ' + (code.scrollWidth - code.clientWidth) + 'px' });
+            }
+          });
+        });
+        modal.querySelectorAll('.ex').forEach(function (a) { a.classList.remove('is-active'); });
+        modal.hidden = true;
+      }
       Reveal.slide(i, 0, -1);                         // hide the fragments again
     });
     Reveal.slide(here.h, here.v, here.f);
@@ -256,6 +347,7 @@
   function init() {
     buildFooters();
     buildDiagramControls();
+    buildExamples();
 
     return Reveal.initialize({
       width: 1280,
@@ -281,6 +373,7 @@
       ['slidechanged', 'fragmentshown', 'fragmenthidden'].forEach(function (name) {
         Reveal.on(name, dgStart);
       });
+      Reveal.on('slidechanged', function () { ex.opener = null; exClose(); });
       dgStart();
     });
   }

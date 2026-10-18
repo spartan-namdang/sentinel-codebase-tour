@@ -11,7 +11,7 @@ Hard rules (exit code 1 when broken):
 
 Reported, not fatal:
   - main-text lines per slide and words per line ("main text" is <li> and <p>
-    in the slide body; titles, tables, code, diagrams and notes are not counted)
+    in the slide body; titles, tables, code, diagrams, example sheets and notes are not counted)
 
 Layout (overflow, code wider than its box, content reaching the footer) needs a
 browser: open the deck and run Deck.audit() in the console. It must return [].
@@ -31,7 +31,7 @@ SOFT_LINES = 8
 SOFT_WORDS = 14
 
 SKIP_TAGS = {"table", "pre", "svg", "aside", "header", "figure", "footer"}
-SKIP_CLASSES = {"eyebrow", "chips", "chip", "cover-meta", "card-kicker", "part-num", "prompt", "brand"}
+SKIP_CLASSES = {"eyebrow", "chips", "chip", "cover-meta", "card-kicker", "part-num", "prompt", "brand", "ex-modal"}
 LINE_TAGS = {"li", "p"}
 VOID = {"img", "br", "hr", "meta", "link", "input", "use", "path", "rect", "circle"}
 

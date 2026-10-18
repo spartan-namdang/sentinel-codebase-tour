@@ -35,6 +35,8 @@
   <symbol id="i-replay" viewBox="0 0 24 24"><path d="M3.5 12a8.5 8.5 0 102.5-6M3.5 3.5V8H8"/></symbol>
   <symbol id="i-pause" viewBox="0 0 24 24"><path d="M9 5v14M15 5v14"/></symbol>
   <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5h.01"/></symbol>
+  <symbol id="i-left" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></symbol>
+  <symbol id="i-right" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></symbol>
 </svg>
 
 <div class="reveal">
@@ -574,20 +576,337 @@ fun cancel(
   </header>
   <div class="s-body">
     <div class="review">
-      <div class="review-item"><span class="tag">!!</span><p>Force-unwrap. Use <code>?:</code>, a null check, or <code>requireNotNull</code>.</p></div>
-      <div class="review-item"><span class="tag">layers</span><p>Logic in the controller, or a controller calling a repository.</p></div>
-      <div class="review-item"><span class="tag">N+1</span><p>A repository call inside <code>map</code> or <code>forEach</code>. Batch with <code>listByIds</code>, then <code>associateBy</code>.</p></div>
-      <div class="review-item"><span class="tag">txn</span><p>An email, queue or vendor call inside a transaction. Or two tables written without one.</p></div>
-      <div class="review-item"><span class="tag">counter</span><p>Read a count, add one, write it back. Two pods lose an update. Do the math in one UPDATE.</p></div>
-      <div class="review-item"><span class="tag">magic</span><p>A limit or timeout typed into code. It goes in config.</p></div>
-      <div class="review-item"><span class="tag">launch</span><p><code>GlobalScope</code>, a fire-and-forget launch, <code>runBlocking</code> in a request. Do it now or hand it to a job.</p></div>
-      <div class="review-item"><span class="tag">mock</span><p>Mocking our own repository or manager. Real database; mock only outside systems.</p></div>
+      <div class="review-item" data-example="ex-bang"><span class="tag">!!</span><p>Force-unwrap. Use <code>?:</code>, a null check, or <code>requireNotNull</code>.</p></div>
+      <div class="review-item" data-example="ex-layers"><span class="tag">layers</span><p>Logic in the controller, or a controller calling a repository.</p></div>
+      <div class="review-item" data-example="ex-n1"><span class="tag">N+1</span><p>A repository call inside <code>map</code> or <code>forEach</code>. Batch with <code>listByIds</code>, then <code>associateBy</code>.</p></div>
+      <div class="review-item" data-example="ex-txn"><span class="tag">txn</span><p>An email, queue or vendor call inside a transaction. Or two tables written without one.</p></div>
+      <div class="review-item" data-example="ex-counter"><span class="tag">counter</span><p>Read a count, add one, write it back. Two pods lose an update. Do the math in one UPDATE.</p></div>
+      <div class="review-item" data-example="ex-magic"><span class="tag">magic</span><p>A limit or timeout typed into code. It goes in config.</p></div>
+      <div class="review-item" data-example="ex-launch"><span class="tag">launch</span><p><code>GlobalScope</code>, a fire-and-forget launch, <code>runBlocking</code> in a request. Do it now or hand it to a job.</p></div>
+      <div class="review-item" data-example="ex-mock"><span class="tag">mock</span><p>Mocking our own repository or manager. Real database; mock only outside systems.</p></div>
+    </div>
+  </div>
+  <!-- examples: one article per card above, opened by deck.js (click a card; ← → to step, Esc to close) -->
+  <div class="ex-modal" role="dialog" aria-modal="true" hidden>
+    <div class="ex-panel">
+
+      <article class="ex" id="ex-bang">
+        <header class="ex-head"><span class="tag">!!</span><h3>One missing row turns into a 500</h3></header>
+        <p class="ex-story">Order 42 was deleted a minute ago. The customer still has the old link open and presses Cancel.</p>
+        <div class="cols is-top">
+          <div class="col">
+            <p class="col-title is-bad"><svg class="icon"><use href="#i-x"/></svg>Sent back</p>
+<pre><code class="kotlin" data-trim>
+val order = orderRepository
+  .findFirst(id = request.id)!!
+val email = order.customerEmail!!
+</code></pre>
+            <p class="caption"><b>NullPointerException → 500.</b> The client gets no error code, and the log only says something was null.</p>
+          </div>
+          <div class="col">
+            <p class="col-title is-good"><svg class="icon"><use href="#i-check"/></svg>Approved</p>
+<pre><code class="kotlin" data-trim>
+val order = orderRepository
+  .findFirst(id = request.id)
+  ?: return SystemError.ORDER_NOT_FOUND
+    .asException().left()
+val email = requireNotNull(order.customerEmail) {
+  "order ${order.id} has no customer email"
+}
+</code></pre>
+            <p class="caption"><b>Expected case:</b> a clean 404 <code>ORDER_NOT_FOUND</code>. <b>Impossible case:</b> a crash that says exactly what broke.</p>
+          </div>
+        </div>
+      </article>
+
+      <article class="ex" id="ex-layers">
+        <header class="ex-head"><span class="tag">layers</span><h3>The same rule, written twice</h3></header>
+        <p class="ex-story">Customers cancel through the API. A nightly job cancels expired orders. Only one of them checks the status.</p>
+        <div class="cols is-top">
+          <div class="col">
+            <p class="col-title is-bad"><svg class="icon"><use href="#i-x"/></svg>Sent back</p>
+<pre><code class="kotlin" data-trim>
+@Post("/cancel")
+fun cancel(
+  @Valid @Body request: CancelOrderRequest
+): OrderResponse {
+  val order = orderRepository
+    .findFirst(id = request.id)
+    ?: throw HttpStatusException(NOT_FOUND, "")
+  if (order.status != OrderStatus.OPEN) {
+    throw HttpStatusException(BAD_REQUEST, "")
+  }
+  return orderRepository.cancel(id = order.id)
+    .toOrderResponse()
+}
+</code></pre>
+            <p class="caption"><b>The rule lives in the controller.</b> The job calls the repository directly and cancels orders that are already shipped.</p>
+          </div>
+          <div class="col">
+            <p class="col-title is-good"><svg class="icon"><use href="#i-check"/></svg>Approved</p>
+<pre><code class="kotlin" data-trim>
+@Post("/cancel")
+fun cancel(
+  @Valid @Body request: CancelOrderRequest
+): OrderResponse {
+  return orderManager.cancel(request)
+    .getOrThrow()
+}
+
+// the nightly job calls the same manager
+orderManager.cancel(CancelOrderRequest(id))
+</code></pre>
+            <p class="caption"><b>One rule, one place:</b> <code>OrderManager.cancel</code>. API and job get the same check and the same error codes.</p>
+          </div>
+        </div>
+      </article>
+
+      <article class="ex" id="ex-n1">
+        <header class="ex-head"><span class="tag">N+1</span><h3>100 orders, 101 queries</h3></header>
+        <p class="ex-story">The order list shows each order with its customer's name. Quick with 5 test orders, slow with 2,000 real ones.</p>
+        <div class="cols is-top">
+          <div class="col">
+            <p class="col-title is-bad"><svg class="icon"><use href="#i-x"/></svg>Sent back</p>
+<pre><code class="kotlin" data-trim>
+val orders = orderRepository
+  .list(organizationId = orgId)
+return orders.map { order ->
+  // one SELECT per order
+  val customer = customerRepository
+    .findFirst(id = order.customerId)
+  order.toOrderResponse(customer)
+}
+</code></pre>
+            <p class="caption"><b>1 + N queries.</b> Each is a round trip to Postgres, so the page gets slower with every order.</p>
+          </div>
+          <div class="col">
+            <p class="col-title is-good"><svg class="icon"><use href="#i-check"/></svg>Approved</p>
+<pre><code class="kotlin" data-trim>
+val orders = orderRepository
+  .list(organizationId = orgId)
+val customers = customerRepository
+  .listByIds(orders.map { it.customerId }.distinct())
+  .associateBy { it.id }
+return orders.map { order ->
+  order.toOrderResponse(customers[order.customerId])
+}
+</code></pre>
+            <p class="caption"><b>2 queries</b>, however many orders. <code>associateBy</code> turns the list into a map for the lookup.</p>
+          </div>
+        </div>
+      </article>
+
+      <article class="ex" id="ex-txn">
+        <header class="ex-head"><span class="tag">txn</span><h3>A slow email holds a connection; a failed insert leaves half a write</h3></header>
+        <p class="ex-story">Cancelling an order writes the order and an event, then emails the customer.</p>
+        <div class="cols is-top">
+          <div class="col">
+            <p class="col-title is-bad"><svg class="icon"><use href="#i-x"/></svg>Sent back</p>
+<pre><code class="kotlin" data-trim>
+// 1. outside call inside the transaction
+transaction(db.primary) {
+  orderRepository.cancel(id = order.id)
+  emailService.sendCancelled(order) // ~2 s
+}
+
+// 2. two tables, no transaction
+orderRepository.cancel(id = order.id)
+orderEventRepository // throws here
+  .insert(OrderEvent.cancelled(order))
+</code></pre>
+            <p class="caption"><b>1:</b> the connection waits on the mail server; ten at once and the pool is empty. <b>2:</b> order cancelled, event missing.</p>
+          </div>
+          <div class="col">
+            <p class="col-title is-good"><svg class="icon"><use href="#i-check"/></svg>Approved</p>
+<pre><code class="kotlin" data-trim>
+val done = transaction(db.primary) {
+  orderEventRepository
+    .insert(OrderEvent.cancelled(order))
+  jobRepository
+    .insert(SendCancelledEmailJob(order.id))
+  orderRepository.cancel(id = order.id)
+}
+// a worker sends the email after the commit
+return done.toOrderResponse().right()
+</code></pre>
+            <p class="caption"><b>Quick writes, one commit:</b> all or nothing. The email is a job in the same commit; a worker sends it and retries.</p>
+          </div>
+        </div>
+      </article>
+
+      <article class="ex" id="ex-counter">
+        <header class="ex-head"><span class="tag">counter</span><h3>Two sales, but the count goes up by one</h3></header>
+        <p class="ex-story">Pod A and pod B each sell the same product at the same moment. <code>sold_count</code> is 10.</p>
+        <div class="cols is-top">
+          <div class="col">
+            <p class="col-title is-bad"><svg class="icon"><use href="#i-x"/></svg>Sent back</p>
+<pre><code class="kotlin" data-trim>
+val product = productRepository
+  .findFirst(id = productId)
+  ?: return SystemError.PRODUCT_NOT_FOUND
+    .asException().left()
+productRepository.updateSoldCount(
+  id = productId,
+  soldCount = product.soldCount + 1,
+)
+</code></pre>
+            <table class="tbl is-compact ex-race">
+              <thead><tr><th></th><th>Pod A</th><th>Pod B</th></tr></thead>
+              <tbody>
+                <tr><td>reads</td><td>10</td><td>10</td></tr>
+                <tr><td>writes</td><td>11</td><td>11</td></tr>
+              </tbody>
+            </table>
+            <p class="caption"><b>Two sales, count 11.</b> No error anywhere, one sale lost.</p>
+          </div>
+          <div class="col">
+            <p class="col-title is-good"><svg class="icon"><use href="#i-check"/></svg>Approved</p>
+<pre><code class="kotlin" data-trim>
+// ProductRepository: Postgres does the + 1
+fun incrementSoldCount(id: UUID): Int =
+  ProductTable.update({ ProductTable.id eq id }) {
+    with(SqlExpressionBuilder) {
+      it.update(soldCount, soldCount + 1)
+    }
+  }
+// UPDATE products
+//   SET sold_count = sold_count + 1
+//   WHERE id = ?
+</code></pre>
+            <p class="caption"><b>One statement.</b> Postgres locks the row, so pod B waits for pod A and adds to 11. The count ends at 12.</p>
+          </div>
+        </div>
+      </article>
+
+      <article class="ex" id="ex-magic">
+        <header class="ex-head"><span class="tag">magic</span><h3>Changing a limit should not need a deploy</h3></header>
+        <p class="ex-story">A big customer needs 500 orders per page. During an incident, ops wants a shorter email timeout on prod only.</p>
+        <div class="cols is-top">
+          <div class="col">
+            <p class="col-title is-bad"><svg class="icon"><use href="#i-x"/></svg>Sent back</p>
+<pre><code class="kotlin" data-trim>
+// OrderManager
+val limit = minOf(request.limit, 200)
+
+// EmailFactory
+OkHttpClient.Builder()
+  .readTimeout(5, TimeUnit.SECONDS)
+  .build()
+</code></pre>
+            <p class="caption"><b>Edit, review, build, deploy</b> to change one number, the same number on every environment.</p>
+          </div>
+          <div class="col">
+            <p class="col-title is-good"><svg class="icon"><use href="#i-check"/></svg>Approved</p>
+<pre><code class="yaml" data-trim>
+app:
+  orders:
+    list-limit-max: ${ORDERS_LIST_LIMIT_MAX:200}
+  email:
+    timeout: ${EMAIL_TIMEOUT:5s}
+</code></pre>
+<pre><code class="kotlin" data-trim>
+@ConfigurationProperties("app.orders")
+class OrderConfig {
+  var listLimitMax: Int = 200
+}
+val limit = minOf(request.limit, config.listLimitMax)
+</code></pre>
+            <p class="caption"><b>Set an env var, restart.</b> One value per environment, and one place to look it up.</p>
+          </div>
+        </div>
+      </article>
+
+      <article class="ex" id="ex-launch">
+        <header class="ex-head"><span class="tag">launch</span><h3>Work that vanishes when it fails</h3></header>
+        <p class="ex-story">After an order is created we email a confirmation. The mail server times out now and then; pods restart on deploy.</p>
+        <div class="cols is-top">
+          <div class="col">
+            <p class="col-title is-bad"><svg class="icon"><use href="#i-x"/></svg>Sent back</p>
+<pre><code class="kotlin" data-trim>
+val order = transaction(db.primary) {
+  orderRepository.insert(request.toOrder())
+}
+// nobody waits, nobody retries
+GlobalScope.launch {
+  emailService.sendConfirmation(order)
+}
+// a request thread sits idle until it returns
+val quote = runBlocking { carrier.quote(order) }
+</code></pre>
+            <p class="caption"><b>Timeout or restart: the email is gone,</b> with no retry and no log line. <code>runBlocking</code> ties up a thread meant for other requests.</p>
+          </div>
+          <div class="col">
+            <p class="col-title is-good"><svg class="icon"><use href="#i-check"/></svg>Approved</p>
+<pre><code class="kotlin" data-trim>
+val order = transaction(db.primary) {
+  orderRepository.insert(request.toOrder()).also {
+    jobRepository
+      .insert(SendConfirmationJob(it.id))
+  }
+}
+// a worker sends it, retries, logs failures
+return order.toOrderResponse().right()
+</code></pre>
+            <p class="caption"><b>Can wait:</b> a job in the same commit. <b>Needed now:</b> call it in the request, with a timeout from config.</p>
+          </div>
+        </div>
+      </article>
+
+      <article class="ex" id="ex-mock">
+        <header class="ex-head"><span class="tag">mock</span><h3>A green test over broken SQL</h3></header>
+        <p class="ex-story">Someone drops <code>deleted_at IS NULL</code> from <code>findFirst</code>. Deleted orders can now be cancelled again.</p>
+        <div class="cols is-top">
+          <div class="col">
+            <p class="col-title is-bad"><svg class="icon"><use href="#i-x"/></svg>Sent back: still passes</p>
+<pre><code class="kotlin" data-trim>
+@Test
+fun `cancel - open order is cancelled`() {
+  every { repo.findFirst(any()) } returns openOrder
+  every { repo.cancel(any()) } returns cancelledOrder
+
+  val result = orderManager
+    .cancel(CancelOrderRequest(id = openOrder.id))
+
+  assertThat(result.isRight()).isTrue()
+}
+</code></pre>
+            <p class="caption"><b>The mock returns what we told it to.</b> The SQL the test should cover never runs.</p>
+          </div>
+          <div class="col">
+            <p class="col-title is-good"><svg class="icon"><use href="#i-check"/></svg>Approved: goes red</p>
+<pre><code class="kotlin" data-trim>
+@Test
+fun `cancel - deleted order is not found`(): Unit =
+  runBlocking {
+    val order = orderFaker.create(
+      organizationId = org.id, deleted = true
+    )
+    val error = orderClient.cancel(
+      token = adminToken,
+      request = CancelOrderRequest(id = order.id),
+    ).leftOrNull()
+    assertThat(error?.code)
+      .isEqualTo(SystemError.ORDER_NOT_FOUND.code)
+  }
+</code></pre>
+            <p class="caption"><b>Real HTTP, real Postgres.</b> Mock only what we don't own: the mail server, a vendor API.</p>
+          </div>
+        </div>
+      </article>
+
+      <footer class="ex-nav">
+        <button type="button" class="ex-btn ex-prev" aria-label="Previous example"><svg class="icon"><use href="#i-left"/></svg></button>
+        <span class="ex-count"></span>
+        <button type="button" class="ex-btn ex-next" aria-label="Next example"><svg class="icon"><use href="#i-right"/></svg></button>
+      </footer>
+      <button type="button" class="ex-btn ex-close" aria-label="Close example"><svg class="icon"><use href="#i-x"/></svg></button>
     </div>
   </div>
   <aside class="notes">
     <h4>Dàn ý</h4>
     <ul>
-      <li>⏱ 3 phút, mỗi mục ~20 giây</li>
+      <li>⏱ 3 phút, mỗi mục ~20 giây (thêm thời gian nếu mở ví dụ)</li>
+      <li>Bấm vào một thẻ để mở ví dụ "bị trả về / được duyệt"; <code>←</code> <code>→</code> sang ví dụ khác, <code>Esc</code> đóng</li>
       <li><code>!!</code>: Olympus hiện có 0 chỗ dùng trong code chính, giữ như vậy</li>
       <li>N+1, counter, txn, launch: đều có rule trong <code>PERFORMANCE.md</code> và <code>TRANSACTIONS.md</code></li>
       <li>layers, magic: nhắc lại slide ba layer và slide config</li>
@@ -596,6 +915,7 @@ fun cancel(
     </ul>
     <h4>Full note</h4>
     <p>Đây là tám thứ mà gần như ai mới vào cũng bị review trả về trong tháng đầu. Biết trước thì đỡ được một vòng review.</p>
+    <p>Mỗi thẻ bấm vào được: nó mở một ví dụ cụ thể, bên trái là code bị review trả về, bên phải là code được duyệt, kèm một câu chuyện ngắn về chuyện gì xảy ra. Nếu thấy cả phòng chưa hình dung ra một mục nào, mở ví dụ của mục đó; dùng phím mũi tên để đi tiếp qua các ví dụ, <code>Esc</code> để quay lại slide.</p>
     <p>Một, <code>!!</code>, force-unwrap. Dùng toán tử elvis, một câu if kiểm tra null, hoặc <code>requireNotNull</code> với message rõ ràng. Trong code chính của Olympus hiện không có chỗ nào dùng <code>!!</code>, hãy giữ như vậy.</p>
     <p>Hai, layers: logic nằm trong controller, hoặc controller gọi thẳng repository.</p>
     <p>Ba, N+1: gọi repository bên trong <code>map</code> hay <code>forEach</code>, 100 phần tử là 100 câu query. Hãy lấy hết id ra, gọi một lần <code>listByIds</code>, rồi <code>associateBy</code> để tra.</p>
